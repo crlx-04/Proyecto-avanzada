@@ -1,3 +1,1 @@
 # PROYECTO
-
-#Gringo mk
