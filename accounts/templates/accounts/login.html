@@ -1,0 +1,26 @@
+{% extends "accounts/auth_base.html" %}
+{% block title %}Iniciar sesión · NDIP{% endblock %}
+{% block form %}
+<form class="box" method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <h2>Iniciar sesión</h2>
+    <p class="muted">Entra para ver y evaluar tus zonas guardadas.</p>
+  </div>
+  {% if form.non_field_errors %}<div class="errbox" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+  <div class="field">
+    <label for="id_username">Usuario</label>
+    <div class="fld"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg>{{ form.username }}</div>
+  </div>
+  <div class="field">
+    <label for="id_password">Contraseña</label>
+    <div class="fld"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>{{ form.password }}
+      <button type="button" class="eye" aria-label="Mostrar la contraseña"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg></button></div>
+  </div>
+  <button type="submit" class="submit">Entrar<svg class="i" style="width:18px;height:18px" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+  <div class="sep">o</div>
+  <a class="alt" href="{% url 'dashboard:home' %}">Evaluar una ubicación sin cuenta</a>
+  <p class="muted" style="text-align:center">¿No tienes cuenta? <a href="{% url 'accounts:register' %}" style="font-weight:600">Regístrate</a></p>
+</form>
+{% endblock %}

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b2a4a'/%3E%3Cpath d='M6 19c3-5 6 5 10 0s7 5 10 0' stroke='%2358b4ff' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <title>{% block title %}NDIP{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,sans-serif; font-size:14px; color:#16232F; background:#EEF2F6; }
+    a { color:#0B6E99; } a:hover { color:#07506F; }
+    h1,h2 { font-family:'Space Grotesk',Inter,sans-serif; margin:0; }
+    .i { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+    .page { min-height:100vh; display:flex; flex-wrap:wrap; }
+    .left { flex:1.25 1 520px; background:#0C2233; color:#fff; padding:48px 56px; display:flex; flex-direction:column; gap:20px; overflow:hidden; position:relative; }
+    .brand { display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff; }
+    .brand .logo { width:44px; height:44px; border-radius:12px; background:#0B6E99; display:grid; place-items:center; }
+    .brand .logo .i { width:24px; height:24px; }
+    .brand strong { display:block; font-family:'Space Grotesk',sans-serif; font-size:20px; }
+    .brand small { color:#9DB2C4; font-size:12px; }
+    .eyebrow { font-size:12px; font-weight:600; letter-spacing:1.4px; color:#5CC8F5; margin-top:24px; }
+    .left h1 { font-size:clamp(30px,4vw,44px); line-height:1.1; max-width:560px; margin:12px 0; }
+    .left p.lead { margin:0; font-size:16px; line-height:1.6; color:#B9C9D8; max-width:520px; }
+    .points { list-style:none; padding:0; margin:12px 0 0; display:flex; flex-direction:column; gap:12px; max-width:520px; }
+    .points li { display:flex; gap:12px; align-items:flex-start; color:#D5E0EA; line-height:1.5; }
+    .points .i { color:#5CC8F5; margin-top:2px; }
+    .rings { position:absolute; right:-120px; bottom:-120px; width:420px; height:420px; opacity:.5; pointer-events:none; }
+    .legal { margin:auto 0 0; font-size:12px; line-height:1.6; color:#9DB2C4; max-width:560px; position:relative; z-index:1; }
+    .right { flex:1 1 440px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; padding:48px 24px; }
+    form.box { width:100%; max-width:420px; background:#fff; border:1px solid #E1E7EE; border-radius:20px; padding:36px; display:flex; flex-direction:column; gap:18px; box-shadow:0 1px 2px rgba(12,34,51,.04), 0 24px 48px -24px rgba(12,34,51,.25); }
+    form.box h2 { font-size:28px; font-weight:700; }
+    .muted { color:#5A6B7B; margin:0; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    .field label { font-size:13px; font-weight:600; }
+    .fld { display:flex; align-items:center; gap:10px; height:48px; border:1px solid #D5DDE5; border-radius:12px; padding:0 14px; background:#fff; color:#5A6B7B; }
+    .fld:focus-within { border-color:#0B6E99; box-shadow:0 0 0 3px #E4F1F7; }
+    .fld input { border:0; outline:0; background:none; font:inherit; font-size:15px; color:#16232F; width:100%; min-width:0; height:44px; }
+    .eye { border:0; background:none; color:#5A6B7B; width:44px; height:44px; margin-right:-12px; display:grid; place-items:center; cursor:pointer; }
+    .err { color:#A31616; font-size:13px; margin:0; }
+    .errbox { background:#FBE1E1; color:#A31616; border:1px solid #F3B9B9; border-radius:12px; padding:10px 14px; font-size:13px; }
+    .hint { font-size:12px; color:#5A6B7B; margin:0; line-height:1.5; }
+    .submit { height:50px; border-radius:12px; border:0; background:#0B6E99; color:#fff; font:inherit; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .submit:hover { background:#07506F; }
+    .sep { display:flex; align-items:center; gap:12px; color:#5A6B7B; font-size:12px; }
+    .sep::before, .sep::after { content:""; flex:1; height:1px; background:#E1E7EE; }
+    .alt { height:48px; border-radius:12px; border:1px solid #D5DDE5; color:#16232F; font-weight:600; display:flex; align-items:center; justify-content:center; text-decoration:none; }
+    .alt:hover { background:#F6F8FA; color:#16232F; }
+    .foot { font-size:12px; color:#5A6B7B; text-align:center; }
+    @media (max-width: 720px) { .left { padding:32px 24px; } form.box { padding:28px 22px; } }
+  </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
+  </defs>
+</svg>
+<div class="page">
+  <section class="left">
+    <a class="brand" href="{% url 'dashboard:home' %}">
+      <span class="logo"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>
+      <span><strong>NDIP</strong><small>Natural Disaster Intelligence Platform</small></span>
+    </a>
+    <span class="eyebrow">RIESGO POR UBICACIÓN</span>
+    <h1>El riesgo de lluvias y sismos, en el lugar que te importa.</h1>
+    <p class="lead">Datos abiertos de USGS y Open-Meteo, con un índice que te explica cómo se calcula.</p>
+    <ul class="points">
+      <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Evalúa cualquier ubicación sin necesidad de cuenta.</li>
+      <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Con tu cuenta guardas tus zonas y las comparas por nivel de riesgo.</li>
+      <li><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Cada resultado incluye la explicación y recomendaciones.</li>
+    </ul>
+    <svg class="rings" viewBox="0 0 420 420" aria-hidden="true"><g fill="none" stroke="#5CC8F5"><circle cx="210" cy="210" r="200" stroke-opacity=".25"/><circle cx="210" cy="210" r="140" stroke-opacity=".35"/><circle cx="210" cy="210" r="80" stroke-opacity=".5"/></g><circle cx="210" cy="210" r="8" fill="#5CC8F5"/></svg>
+    {% if disclaimer %}<p class="legal">{{ disclaimer }}</p>{% endif %}
+  </section>
+  <section class="right">
+    {% block form %}{% endblock %}
+    <span class="foot">Proyecto de Programación Avanzada · Universidad de La Guajira</span>
+  </section>
+</div>
+<script>
+  document.querySelectorAll('.eye').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = btn.parentNode.querySelector('input');
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-label', show ? 'Ocultar la contraseña' : 'Mostrar la contraseña');
+    });
+  });
+</script>
+</body>
+</html>

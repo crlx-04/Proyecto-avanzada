@@ -1,0 +1,31 @@
+{% extends "accounts/auth_base.html" %}
+{% block title %}Crear cuenta · NDIP{% endblock %}
+{% block form %}
+<form class="box" method="post" novalidate>
+  {% csrf_token %}
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <h2>Crear cuenta</h2>
+    <p class="muted">Guarda tus zonas y compara su riesgo en un solo lugar.</p>
+  </div>
+  {% if form.non_field_errors %}<div class="errbox" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+  <div class="field">
+    <label for="id_username">Usuario</label>
+    <div class="fld"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg>{{ form.username }}</div>
+    {% for e in form.username.errors %}<p class="err">{{ e }}</p>{% endfor %}
+  </div>
+  <div class="field">
+    <label for="id_password1">Contraseña</label>
+    <div class="fld"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>{{ form.password1 }}
+      <button type="button" class="eye" aria-label="Mostrar la contraseña"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg></button></div>
+    {% for e in form.password1.errors %}<p class="err">{{ e }}</p>{% endfor %}
+    <p class="hint">Mínimo 8 caracteres, no solo números y no demasiado común.</p>
+  </div>
+  <div class="field">
+    <label for="id_password2">Confirmar contraseña</label>
+    <div class="fld"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>{{ form.password2 }}</div>
+    {% for e in form.password2.errors %}<p class="err">{{ e }}</p>{% endfor %}
+  </div>
+  <button type="submit" class="submit">Crear cuenta<svg class="i" style="width:18px;height:18px" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+  <p class="muted" style="text-align:center">¿Ya tienes cuenta? <a href="{% url 'accounts:login' %}" style="font-weight:600">Inicia sesión</a></p>
+</form>
+{% endblock %}
