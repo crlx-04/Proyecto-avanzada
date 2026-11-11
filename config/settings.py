@@ -135,3 +135,8 @@ MAILERS = {
 
 # Los mapas (OpenStreetMap) piden que se envie el origen al cargar teselas
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# Inicio y cierre de sesión
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'accounts:zones'
+LOGOUT_REDIRECT_URL = 'dashboard:home'
