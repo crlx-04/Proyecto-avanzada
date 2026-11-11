@@ -26,6 +26,11 @@ class RiskAssessment(models.Model):
     level = models.CharField(max_length=10, choices=Level.choices)
     explanation = models.TextField("explicación")
 
+    # Zona guardada a la que pertenece esta evaluación (vacío si el visitante no inició sesión)
+    zone = models.ForeignKey(
+        "accounts.Zone", null=True, blank=True, on_delete=models.SET_NULL, related_name="assessments"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
