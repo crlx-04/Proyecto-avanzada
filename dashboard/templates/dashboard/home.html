@@ -1,0 +1,274 @@
+{% extends "dashboard/base.html" %}
+{% load l10n %}
+{% block title %}Evaluar una ubicación · NDIP{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  .hero { background:var(--navy); color:#fff; border-radius:20px; padding:28px 32px; margin-bottom:20px; box-shadow:0 18px 40px -22px rgba(12,34,51,.6); }
+  .hero .eyebrow { font-size:12px; font-weight:600; letter-spacing:1.4px; color:#5CC8F5; }
+  .hero h2 { font-size:clamp(24px,3.4vw,34px); line-height:1.15; margin:10px 0 10px; max-width:620px; }
+  .hero p { margin:0; font-size:15px; line-height:1.6; color:#B9C9D8; max-width:640px; }
+  .main-grid { display:grid; grid-template-columns:minmax(300px,380px) 1fr; gap:20px; align-items:start; }
+  @media (max-width: 1000px) { .main-grid { grid-template-columns:1fr; } }
+  .field { margin-bottom:.8rem; }
+  .field label { display:block; font-weight:600; font-size:.88rem; margin-bottom:.25rem; }
+  .field input { width:100%; padding:.65rem .8rem; border:1.5px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text); font-size:1rem; }
+  .field input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .error { color:var(--critico); font-size:.84rem; margin:.25rem 0 0; }
+  .label-sm { font-size:.85rem; color:var(--muted); margin:0 0 .4rem; }
+  #geo-status { min-height:1.2rem; font-size:.86rem; margin:.4rem 0 .8rem; }
+  #geo-status.err { color:var(--critico); }
+  details.advanced { margin:.2rem 0 1rem; }
+  details.advanced summary { cursor:pointer; color:var(--accent); font-weight:600; font-size:.92rem; }
+  details.advanced .two { margin-top:.7rem; }
+  #pick-map { height:455px; z-index:0; }
+  .map-fail { padding:1rem; color:var(--critico); }
+  .hint { font-size:.84rem; color:var(--muted); padding:.5rem 1rem; border-top:1px solid var(--border); }
+  .legend { background:var(--card); color:var(--text); padding:.4rem .6rem; border-radius:8px; font-size:.78rem; box-shadow:var(--shadow); line-height:1.5; }
+  .legend i { display:inline-block; width:.65rem; height:.65rem; border-radius:50%; margin-right:.3rem; }
+  .second-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem; }
+  @media (max-width: 1000px) { .second-grid { grid-template-columns:1fr; } }
+  .recent { display:flex; justify-content:space-between; align-items:center; gap:.6rem; padding:.7rem 0; border-bottom:1px solid var(--border); text-decoration:none; color:inherit; transition:padding .15s; }
+  .recent:last-child { border-bottom:0; }
+  .recent:hover { padding-left:.3rem; }
+  .recent .place { font-weight:700; }
+  .live { display:flex; gap:.7rem; align-items:center; padding:.5rem 0; border-bottom:1px solid var(--border); font-size:.9rem; }
+  .live:last-child { border-bottom:0; }
+  .live .m { flex:none; min-width:2.7rem; text-align:center; font-weight:700; color:#fff; border-radius:8px; padding:.15rem .3rem; }
+  .dot-live { display:inline-block; width:.6rem; height:.6rem; border-radius:50%; background:#ff6b3d; animation:livepulse 1.6s infinite; }
+  @keyframes livepulse { 0% { box-shadow:0 0 0 0 rgba(255,107,61,.7); } 70% { box-shadow:0 0 0 9px rgba(255,107,61,0); } 100% { box-shadow:0 0 0 0 rgba(255,107,61,0); } }
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-top:1rem; }
+  .step { display:flex; gap:.9rem; }
+  .step .num { flex:none; width:44px; height:44px; border-radius:14px; background:var(--accent-soft); border:1px solid var(--border); display:grid; place-items:center; font-size:1.35rem; color:var(--accent); }
+</style>
+{% endblock %}
+
+{% block pagetitle %}Evaluar una ubicación{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <span class="eyebrow">EVALUACIÓN POR UBICACIÓN</span>
+  <h2>¿Qué tan expuesta está tu ubicación?</h2>
+  <p>Elige un lugar en el mapa o escribe sus coordenadas. Combinamos la lluvia reciente y prevista con la actividad sísmica de la zona y te explicamos el resultado en palabras simples.</p>
+</section>
+
+<div class="main-grid">
+  <section class="panel">
+    <header><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg> Controles de evaluación</header>
+    <div class="body">
+      <p class="label-sm">Lugares rápidos</p>
+      <div class="chips">
+        {% for place in places %}
+          <button type="button" class="chip" data-lat="{{ place.lat|unlocalize }}" data-lon="{{ place.lon|unlocalize }}">{{ place.name }}</button>
+        {% endfor %}
+      </div>
+
+      <p style="margin:.9rem 0 0">
+        <button type="button" class="btn secondary small" id="use-location"><svg class="i" aria-hidden="true"><use href="#i-locate"/></svg> Usar mi ubicación</button>
+      </p>
+      <p id="geo-status" class="muted" role="status">También puedes hacer clic en el mapa.</p>
+
+      <form method="post" data-evaluate>
+        {% csrf_token %}
+        <div class="two">
+          {% for field in form.visible_fields|slice:":2" %}
+            <div class="field">
+              {{ field.label_tag }}
+              {{ field }}
+              {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <details class="advanced" {% if form.radius_km.errors or form.days.errors %}open{% endif %}>
+          <summary>Opciones avanzadas</summary>
+          <div class="two">
+            {% for field in form.visible_fields|slice:"2:" %}
+              <div class="field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+
+        <button type="submit" class="btn block"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg> Evaluar riesgo</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header><svg class="i" aria-hidden="true"><use href="#i-map"/></svg> Mapa · elige el lugar <span class="right">Puntos naranja: sismos M4.5+ (24 h)</span></header>
+    <div id="pick-map"></div>
+    <div class="hint">Haz clic en el mapa o arrastra el marcador para cambiar la ubicación. El círculo es el radio de búsqueda.</div>
+  </section>
+</div>
+
+<div class="second-grid">
+  <section class="panel reveal">
+    <header><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg> Últimas evaluaciones <a class="right" href="{% url 'dashboard:history' %}">Ver todo</a></header>
+    <div class="body">
+      {% if recent %}
+        {% for item in recent %}
+          <a class="recent" href="{% url 'dashboard:detail' item.pk %}">
+            <div>
+              <span class="place">{% if item.place_label %}{{ item.place_label }}{% else %}{{ item.latitude|floatformat:2 }}, {{ item.longitude|floatformat:2 }}{% endif %}</span><br>
+              <small class="muted">{{ item.created_at|date:"d/m/Y H:i" }}</small>
+            </div>
+            <span class="badge {{ item.level }}">{{ item.get_level_display }} · {{ item.score }}</span>
+          </a>
+        {% endfor %}
+      {% else %}
+        <p class="muted" style="margin:0">Todavía no hay evaluaciones. Haz la primera con el panel de la izquierda.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel reveal">
+    <header><span class="dot-live"></span> Sismos en vivo (mundo, M4.5+)</header>
+    <div class="body" id="live-list"><p class="muted" style="margin:0">Cargando datos de USGS…</p></div>
+  </section>
+</div>
+
+<h2 class="section-title">Cómo funciona</h2>
+<div class="steps">
+  <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></div><div><strong>Eliges un lugar</strong><p class="muted" style="margin:.2rem 0 0">Con el mapa, coordenadas, un lugar rápido o tu ubicación.</p></div></div>
+  <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-database"/></svg></div><div><strong>Consultamos datos abiertos</strong><p class="muted" style="margin:.2rem 0 0">Lluvia pasada y prevista (Open-Meteo) y sismos recientes (USGS).</p></div></div>
+  <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-bulb"/></svg></div><div><strong>Te lo explicamos</strong><p class="muted" style="margin:.2rem 0 0">Un nivel de riesgo con su razón, recomendaciones y el historial de la zona.</p></div></div>
+</div>
+
+<script>
+  (function () {
+    var latInput = document.getElementById('id_latitude');
+    var lonInput = document.getElementById('id_longitude');
+    var radiusInput = document.getElementById('id_radius_km');
+    var status = document.getElementById('geo-status');
+    var map = null, marker = null, circle = null;
+
+    function setStatus(text, isError) {
+      status.textContent = text;
+      status.className = isError ? 'err' : 'muted';
+    }
+    function numberOrNull(el) {
+      var n = parseFloat(el.value);
+      return isNaN(n) ? null : n;
+    }
+    function radiusMeters() {
+      var r = radiusInput ? numberOrNull(radiusInput) : null;
+      return (r && r > 0 ? r : 300) * 1000;
+    }
+    // Pone las coordenadas en el formulario y mueve el marcador del mapa
+    function setCoords(lat, lon, fly) {
+      latInput.value = String(lat);
+      lonInput.value = String(lon);
+      if (!map) return;
+      var ll = [parseFloat(lat), parseFloat(lon)];
+      marker.setLatLng(ll); circle.setLatLng(ll); circle.setRadius(radiusMeters());
+      if (!marker._map) { marker.addTo(map); circle.addTo(map); }
+      if (fly) map.flyTo(ll, Math.max(map.getZoom(), 6), { duration: 0.8 });
+    }
+
+    // ---- Mapa interactivo ----
+    var mapEl = document.getElementById('pick-map');
+    if (typeof L === 'undefined') {
+      mapEl.innerHTML = '<p class="map-fail">No se pudo cargar el mapa. Revisa tu conexión a internet o desactiva el bloqueador de contenido. Puedes seguir usando los lugares rápidos o las coordenadas.</p>';
+    } else {
+      var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+      var light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO' });
+      var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Tiles &copy; Esri' });
+      var lat0 = numberOrNull(latInput), lon0 = numberOrNull(lonInput);
+      var hasStart = lat0 !== null && lon0 !== null;
+      map = L.map('pick-map', { layers: [streets] }).setView(hasStart ? [lat0, lon0] : [6.5, -74.5], hasStart ? 6 : 5);
+      L.control.layers({ 'Calles': streets, 'Claro': light, 'Satélite': satellite }).addTo(map);
+      var tileErrors = 0;
+      streets.on('tileerror', function () {
+        tileErrors += 1;
+        if (tileErrors === 6 && map.hasLayer(streets)) { map.removeLayer(streets); light.addTo(map); }
+      });
+      marker = L.marker(hasStart ? [lat0, lon0] : [0, 0], { draggable: true });
+      circle = L.circle(hasStart ? [lat0, lon0] : [0, 0], { radius: radiusMeters(), color: '#0b6bcb', weight: 1.5, fillOpacity: 0.07 });
+      if (hasStart) { marker.addTo(map); circle.addTo(map); }
+      map.on('click', function (e) { setCoords(e.latlng.lat.toFixed(4), e.latlng.lng.toFixed(4), false); setStatus('Ubicación elegida en el mapa.', false); });
+      marker.on('dragend', function () { var p = marker.getLatLng(); setCoords(p.lat.toFixed(4), p.lng.toFixed(4), false); setStatus('Ubicación movida en el mapa.', false); });
+      [latInput, lonInput, radiusInput].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener('change', function () {
+          var la = numberOrNull(latInput), lo = numberOrNull(lonInput);
+          if (la !== null && lo !== null && Math.abs(la) <= 90 && Math.abs(lo) <= 180) setCoords(la, lo, true);
+        });
+      });
+    }
+
+    document.querySelectorAll('.chip[data-lat]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        setCoords(chip.dataset.lat, chip.dataset.lon, true);
+        setStatus('Ubicación elegida: ' + chip.textContent + '.', false);
+      });
+    });
+
+    document.getElementById('use-location').addEventListener('click', function () {
+      if (!navigator.geolocation) {
+        setStatus('Tu navegador no permite obtener la ubicación. Escribe las coordenadas o elige un lugar rápido.', true);
+        return;
+      }
+      if (!window.isSecureContext) {
+        setStatus('El navegador solo permite usar la ubicación en páginas seguras (https o localhost).', true);
+        return;
+      }
+      setStatus('Buscando tu ubicación…', false);
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          setCoords(pos.coords.latitude.toFixed(4), pos.coords.longitude.toFixed(4), true);
+          setStatus('Ubicación encontrada (precisión aproximada: ' + Math.round(pos.coords.accuracy) + ' m).', false);
+        },
+        function (err) {
+          var messages = {
+            1: 'Permiso denegado. Permite el acceso a la ubicación en el navegador (icono junto a la dirección) y vuelve a intentar.',
+            2: 'No se pudo determinar tu ubicación. Revisa que los servicios de ubicación del dispositivo estén activados.',
+            3: 'Se agotó el tiempo esperando tu ubicación. Intenta de nuevo.'
+          };
+          setStatus((messages[err.code] || 'No se pudo obtener tu ubicación.') + ' También puedes elegir un lugar rápido o hacer clic en el mapa.', true);
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+
+    // ---- Sismos en vivo (USGS, desde el navegador). Si falla, se avisa y no se rompe nada ----
+    var liveBox = document.getElementById('live-list');
+    fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var feats = d.features || [];
+        liveBox.textContent = '';
+        if (!feats.length) { liveBox.textContent = 'No hubo sismos M4.5+ en las últimas 24 horas.'; return; }
+        feats.slice(0, 7).forEach(function (f) {
+          var mag = f.properties.mag;
+          var color = mag >= 6 ? '#b42318' : (mag >= 5 ? '#d9480f' : '#c99700');
+          var row = document.createElement('div'); row.className = 'live';
+          var m = document.createElement('span'); m.className = 'm'; m.style.background = color;
+          m.textContent = mag === null ? '?' : mag.toFixed(1);
+          var info = document.createElement('div');
+          info.textContent = f.properties.place || 'sin ubicación';
+          var hrs = Math.max(0, Math.round((Date.now() - f.properties.time) / 3600000));
+          var small = document.createElement('small'); small.className = 'muted'; small.style.display = 'block';
+          small.textContent = 'hace ' + hrs + ' h';
+          info.appendChild(small);
+          row.appendChild(m); row.appendChild(info); liveBox.appendChild(row);
+        });
+        if (map) {
+          feats.forEach(function (f) {
+            var c = f.geometry.coordinates, mag = f.properties.mag || 4.5;
+            var tip = document.createElement('div');
+            tip.textContent = 'M' + mag.toFixed(1) + ' · ' + (f.properties.place || '');
+            L.circleMarker([c[1], c[0]], { radius: Math.max(4, mag * 1.8), color: '#ff6b3d', fillColor: '#ff6b3d', fillOpacity: 0.6, weight: 1 })
+              .addTo(map).bindPopup(tip);
+          });
+        }
+      })
+      .catch(function () { liveBox.textContent = 'No se pudo consultar USGS en este momento.'; });
+  })();
+</script>
+{% endblock %}

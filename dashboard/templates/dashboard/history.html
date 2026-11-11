@@ -1,0 +1,43 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Historial · NDIP{% endblock %}
+{% block head %}
+<style>
+  .mini { background:var(--border); border-radius:999px; height:.5rem; width:90px; overflow:hidden; display:inline-block; vertical-align:middle; }
+  .mini span { display:block; height:100%; background:var(--accent); }
+  .place { font-weight:600; }
+  tbody tr { transition:background .15s; }
+  tbody tr:hover { background:var(--accent-soft); }
+</style>
+{% endblock %}
+{% block pagetitle %}Historial{% endblock %}
+{% block content %}
+<section class="panel">
+  <header><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg> Historial de evaluaciones <span class="right">Últimas 100, de la más reciente a la más antigua</span></header>
+  <div class="body">
+    {% if assessments %}
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Fecha</th><th>Lugar</th><th>Lluvia</th><th>Sismos</th><th>Riesgo</th><th></th></tr></thead>
+          <tbody>
+          {% for item in assessments %}
+            <tr>
+              <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+              <td>
+                <span class="place">{% if item.place_label %}{{ item.place_label }}{% else %}Ubicación{% endif %}</span><br>
+                <small class="muted">{{ item.latitude|floatformat:3 }}, {{ item.longitude|floatformat:3 }}</small>
+              </td>
+              <td><span class="mini"><span style="width: {{ item.rain_score }}%"></span></span> <small class="muted">{{ item.rain_score }}</small></td>
+              <td><span class="mini"><span style="width: {{ item.quake_score }}%"></span></span> <small class="muted">{{ item.quake_score }}</small></td>
+              <td><span class="badge {{ item.level }}">{{ item.get_level_display }} · {{ item.score }}</span></td>
+              <td><a href="{% url 'dashboard:detail' item.pk %}">Ver</a></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted" style="margin:0">Todavía no hay evaluaciones. <a href="{% url 'dashboard:home' %}">Haz la primera.</a></p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

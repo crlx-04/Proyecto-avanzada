@@ -1,0 +1,279 @@
+{% extends "dashboard/base.html" %}
+{% load l10n %}
+{% block title %}Resultado · NDIP{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  @property --p { syntax:'<number>'; inherits:false; initial-value:0; }
+  @keyframes fillgauge { from { --p:0; } }
+  @keyframes growbar { from { width:0 !important; } }
+  @keyframes alertpulse { 0%,100% { box-shadow:0 0 0 0 rgba(180,35,24,.45); } 50% { box-shadow:0 0 0 10px rgba(180,35,24,0); } }
+  .head-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; animation:fadeUp .5s ease both; }
+  .head-row h2 { font-size:clamp(1.4rem,3vw,2rem); margin:0; }
+  .layout { display:grid; grid-template-columns:minmax(300px,380px) 1fr; gap:1rem; align-items:start; }
+  @media (max-width: 1000px) { .layout { grid-template-columns:1fr; } }
+  .stack { display:grid; gap:1rem; }
+  .bottom { display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-top:1rem; align-items:start; }
+  @media (max-width: 1000px) { .bottom { grid-template-columns:1fr; } }
+
+  /* Resultado */
+  .res-top { display:flex; gap:1.1rem; align-items:center; }
+  .gauge { --p:0; width:128px; height:128px; border-radius:50%; flex:none; display:grid; place-items:center;
+           background:conic-gradient(var(--c) calc(var(--p) * 1%), var(--border) 0); animation:fillgauge 1.2s ease-out both;
+           box-shadow:0 0 0 6px color-mix(in srgb, var(--c) 14%, transparent); }
+  .gauge-inner { width:100px; height:100px; border-radius:50%; background:var(--card); display:grid; place-items:center; align-content:center; text-align:center; }
+  .gauge-score { font-family:var(--font-h); font-size:2.3rem; font-weight:700; line-height:1; color:var(--c); }
+  .gauge-inner small { color:var(--muted); }
+  .explain { margin:.9rem 0 0; font-size:.98rem; }
+  .big-level { display:flex; align-items:center; gap:.6rem; margin-top:.9rem; padding:.7rem .9rem; border-radius:10px; font-weight:700;
+               background:color-mix(in srgb, var(--c) 14%, var(--card)); color:var(--c); border:1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+
+  /* Cifras y factores */
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .stat { border:1px solid var(--border); border-radius:12px; padding:.7rem; text-align:center; background:var(--bg); }
+  .stat .ico { font-size:1.5rem; display:block; color:var(--accent); margin-bottom:.1rem; }
+  .stat .value { font-family:var(--font-h); font-size:1.5rem; font-weight:700; line-height:1.15; }
+  .stat .value small { font-size:.85rem; font-weight:600; color:var(--muted); }
+  .stat .label { color:var(--muted); font-size:.78rem; line-height:1.25; }
+  .factor { margin-top:.9rem; }
+  .factor-head { display:flex; justify-content:space-between; align-items:center; gap:.5rem; font-size:.92rem; }
+  .bar { background:var(--border); border-radius:999px; height:.6rem; overflow:hidden; margin:.45rem 0 .2rem; }
+  .bar span { display:block; height:100%; background:linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, #fff), var(--c)); border-radius:999px; animation:growbar 1.1s ease-out both; }
+
+  /* Mapa */
+  .map-layout { display:grid; grid-template-columns:2fr 1fr; }
+  @media (max-width: 760px) { .map-layout { grid-template-columns:1fr; } }
+  #map { height:520px; z-index:0; }
+  .map-fail { padding:1rem; color:var(--critico); }
+  .quake-list { max-height:520px; overflow-y:auto; padding:.3rem .9rem; border-left:1px solid var(--border); }
+  .quake-list h4 { margin:.6rem 0 .2rem; font-size:.85rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .quake { display:flex; gap:.7rem; padding:.55rem 0; border-bottom:1px solid var(--border); align-items:center; font-size:.9rem; }
+  .quake:last-child { border-bottom:0; }
+  .mag { flex:none; min-width:2.6rem; text-align:center; font-weight:700; border-radius:8px; padding:.2rem .3rem; color:#fff; }
+  .mag-low { background:#c99700; } .mag-mid { background:#e0701a; } .mag-high { background:#b42318; } .mag-na { background:#7b8794; }
+  .legend { background:var(--card); color:var(--text); padding:.45rem .65rem; border-radius:8px; font-size:.78rem; box-shadow:var(--shadow); line-height:1.6; }
+  .legend i { display:inline-block; width:.7rem; height:.7rem; border-radius:3px; margin-right:.35rem; vertical-align:-1px; }
+  .legend i.round { border-radius:50%; }
+  .alert-pin { width:30px; height:30px; border-radius:50%; background:var(--critico); color:#fff; display:grid; place-items:center; font-weight:800; border:2px solid #fff; animation:alertpulse 1.8s infinite; }
+
+  /* Alertas */
+  .alert-box { border-radius:12px; padding:.9rem 1rem; display:flex; gap:.8rem; align-items:flex-start; }
+  .alert-box.warn { background:#fdecec; color:#7f1d1d; border:1px solid #f3b9b9; }
+  .alert-box.ok { background:#e6f4ea; color:#14532d; border:1px solid #b7dfc2; }
+  .alert-box .ico { font-size:1.9rem; line-height:1; }
+  @media (prefers-color-scheme: dark) {
+    .alert-box.warn { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
+    .alert-box.ok { background:#12301c; color:#b9e8c6; border-color:#24553a; }
+  }
+  .checks { list-style:none; padding:0; margin:.5rem 0 0; }
+  .checks li { display:flex; gap:.55rem; padding:.3rem 0; font-size:.93rem; }
+  .checks li::before { content:""; flex:none; width:1.05rem; height:1.05rem; margin-top:.2rem; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232e7d32' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center/contain no-repeat; }
+  .chart-box { position:relative; height:270px; }
+</style>
+{% endblock %}
+
+{% block pagetitle %}Resultado de la evaluación{% endblock %}
+
+{% block topinfo %}
+<div class="pill-info"><svg class="i" aria-hidden="true"><use href="#i-rain"/></svg> Lluvia: <strong>{{ assessment.rain_past_mm }} mm</strong> · Nivel: <strong style="color:{% if assessment.level == 'bajo' %}var(--bajo){% elif assessment.level == 'medio' %}var(--medio){% elif assessment.level == 'alto' %}var(--alto){% else %}var(--critico){% endif %}">{{ assessment.get_level_display }}</strong></div>
+{% endblock %}
+
+{% block content %}
+<div class="head-row">
+  <div>
+    <p class="muted" style="margin:0">Resultado para</p>
+    <h2>{% if assessment.place_label %}{{ assessment.place_label }}{% else %}Ubicación seleccionada{% endif %}</h2>
+    <p class="muted" style="margin:0">
+      {{ assessment.latitude|floatformat:4 }}, {{ assessment.longitude|floatformat:4 }}
+      · evaluado el {{ assessment.created_at|date:"d/m/Y H:i" }}
+    </p>
+  </div>
+  <div style="display:flex; gap:.6rem; flex-wrap:wrap">
+    <form method="post" action="{% url 'dashboard:home' %}" data-evaluate>
+      {% csrf_token %}
+      <input type="hidden" name="latitude" value="{{ assessment.latitude|unlocalize }}">
+      <input type="hidden" name="longitude" value="{{ assessment.longitude|unlocalize }}">
+      <input type="hidden" name="radius_km" value="{{ assessment.radius_km|unlocalize }}">
+      <input type="hidden" name="days" value="{{ assessment.days|unlocalize }}">
+      <button type="submit" class="btn small"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg> Evaluar de nuevo</button>
+    </form>
+    <a class="btn secondary small" href="{% url 'dashboard:home' %}"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg> Otra ubicación</a>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="stack">
+    <section class="panel lvl-{{ assessment.level }}">
+      <header><svg class="i" aria-hidden="true"><use href="#i-bars"/></svg> Resultado de la evaluación</header>
+      <div class="body">
+        <div class="res-top">
+          <div class="gauge" style="--p: {{ assessment.score }}">
+            <div class="gauge-inner"><span class="gauge-score" data-count="{{ assessment.score|unlocalize }}">{{ assessment.score }}</span><small>de 100</small></div>
+          </div>
+          <div>
+            <span class="badge {{ assessment.level }}">Riesgo {{ assessment.get_level_display }}</span>
+            <div class="muted" style="font-size:.82rem;margin-top:.4rem">Radio {{ assessment.radius_km }} km · últimos {{ assessment.days }} días</div>
+          </div>
+        </div>
+        <p class="explain">{{ assessment.explanation }}</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header><svg class="i" aria-hidden="true"><use href="#i-rain"/></svg> Qué pesa en el resultado</header>
+      <div class="body">
+        <div class="stats">
+          <div class="stat"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-rain"/></svg></span><div class="value">{{ assessment.rain_past_mm }}<small> mm</small></div><div class="label">Lluvia últimos 3 días</div></div>
+          <div class="stat"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-forecast"/></svg></span><div class="value">{{ assessment.rain_forecast_mm }}<small> mm</small></div><div class="label">Lluvia prevista</div></div>
+          <div class="stat"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-activity"/></svg></span><div class="value">{{ assessment.quake_count }}</div><div class="label">Sismos en {{ assessment.days }} días</div></div>
+          <div class="stat"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-mountain"/></svg></span><div class="value">{{ assessment.max_magnitude|default_if_none:"—" }}</div><div class="label">Mayor magnitud</div></div>
+        </div>
+        <div class="factor lvl-{{ rain_level.value }}">
+          <div class="factor-head"><strong>Lluvia</strong><span class="badge {{ rain_level.value }}">{{ rain_level.label }} · {{ assessment.rain_score }}</span></div>
+          <div class="bar"><span style="width: {{ assessment.rain_score }}%"></span></div>
+          <small class="muted">Pesa más la lluvia prevista que la ya caída.</small>
+        </div>
+        <div class="factor lvl-{{ quake_level.value }}">
+          <div class="factor-head"><strong>Actividad sísmica</strong><span class="badge {{ quake_level.value }}">{{ quake_level.label }} · {{ assessment.quake_score }}</span></div>
+          <div class="bar"><span style="width: {{ assessment.quake_score }}%"></span></div>
+          <small class="muted">Mide la actividad de la zona, no la probabilidad de un terremoto.</small>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <header><svg class="i" aria-hidden="true"><use href="#i-map"/></svg> Mapa de riesgo <span class="right">Radio {{ assessment.radius_km }} km</span></header>
+    <div class="map-layout">
+      <div id="map"></div>
+      <div class="quake-list">
+        <h4>Sismos de la zona ({{ quake_rows|length }})</h4>
+        {% for q in quake_rows %}
+          <div class="quake">
+            <span class="mag {{ q.css }}">{{ q.magnitude|default_if_none:"s/d" }}</span>
+            <div><div>{{ q.place }}</div><small class="muted">{{ q.time }} · {{ q.depth_km|floatformat:0 }} km de profundidad</small></div>
+          </div>
+        {% empty %}
+          <p class="muted">No hubo sismos registrados en esta ventana de tiempo y distancia.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="bottom">
+  <section class="panel reveal">
+    <header><svg class="i" aria-hidden="true"><use href="#i-trend"/></svg> Evolución del riesgo en esta zona</header>
+    <div class="body">
+      {% if history_count > 1 %}
+        <div class="chart-box"><canvas id="history-chart"></canvas></div>
+      {% else %}
+        <p class="muted" style="margin:0">Aún no hay más evaluaciones de esta zona. Usa «Evaluar de nuevo» en otro momento para ver cómo cambia el riesgo.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel reveal">
+    <header><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg> Alertas y recomendaciones</header>
+    <div class="body">
+      {% if assessment.level == "alto" or assessment.level == "critico" %}
+        <div class="alert-box warn"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg></span><div><strong>¡Alerta! Riesgo {{ assessment.get_level_display|lower }}.</strong><br><span style="font-size:.92rem">{{ advice }}</span></div></div>
+      {% else %}
+        <div class="alert-box ok"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg></span><div><strong>Sin alertas por ahora.</strong><br><span style="font-size:.92rem">{{ advice }}</span></div></div>
+      {% endif %}
+      <p style="margin:.9rem 0 0"><strong>Recomendaciones:</strong></p>
+      <ul class="checks">{% for item in recommendations %}<li>{{ item }}</li>{% endfor %}</ul>
+      <small class="muted">{{ official_note }}</small>
+    </div>
+  </section>
+</div>
+
+{{ map_data|json_script:"map-data" }}
+{{ quakes_data|json_script:"quakes-data" }}
+{{ chart_data|json_script:"chart-data" }}
+
+<script>
+  (function () {
+    var LEVEL_COLOR = { bajo: '#3FA36B', medio: '#D99A06', alto: '#E8590C', critico: '#C81E1E' };
+    var level = '{{ assessment.level }}';
+    var mapEl = document.getElementById('map');
+    if (typeof L === 'undefined') {
+      mapEl.innerHTML = '<p class="map-fail">No se pudo cargar el mapa. Revisa tu conexión a internet o desactiva el bloqueador de contenido. Los datos de esta página siguen siendo válidos.</p>';
+    } else {
+      var place = JSON.parse(document.getElementById('map-data').textContent);
+      var quakes = JSON.parse(document.getElementById('quakes-data').textContent);
+
+      var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+      var light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO' });
+      var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Tiles &copy; Esri' });
+      var map = L.map('map', { layers: [streets] }).setView([place.lat, place.lon], 7);
+      L.control.layers({ 'Calles': streets, 'Claro': light, 'Satélite': satellite }).addTo(map);
+
+      // Si el mapa principal falla muchas veces, se cambia solo a uno alternativo
+      var tileErrors = 0;
+      streets.on('tileerror', function () {
+        tileErrors += 1;
+        if (tileErrors === 6 && map.hasLayer(streets)) { map.removeLayer(streets); light.addTo(map); }
+      });
+
+      // Anillos concéntricos con el color del nivel: dan la idea de "zona de influencia"
+      var color = LEVEL_COLOR[level] || '#0b6bcb';
+      var outer = L.circle([place.lat, place.lon], { radius: place.radius_km * 1000, color: color, weight: 2, fillColor: color, fillOpacity: 0.08 }).addTo(map);
+      [0.66, 0.33].forEach(function (f, i) {
+        L.circle([place.lat, place.lon], { radius: place.radius_km * 1000 * f, color: color, weight: 0, fillColor: color, fillOpacity: 0.10 + i * 0.07 }).addTo(map);
+      });
+      map.fitBounds(outer.getBounds());
+
+      var pin = (level === 'alto' || level === 'critico')
+        ? L.divIcon({ className: '', html: '<div class="alert-pin">!</div>', iconSize: [30, 30], iconAnchor: [15, 15] })
+        : new L.Icon.Default();
+      L.marker([place.lat, place.lon], { icon: pin }).addTo(map).bindPopup('Ubicación evaluada');
+
+      quakes.forEach(function (q) {
+        var c = q.mag === null ? '#7b8794' : (q.mag >= 5 ? '#b42318' : (q.mag >= 4 ? '#e0701a' : '#c99700'));
+        // textContent evita insertar HTML que venga en el nombre del lugar
+        var info = document.createElement('div');
+        info.textContent = 'M' + (q.mag === null ? 's/d' : q.mag) + ' · ' + q.place + ' · ' + q.time;
+        L.circleMarker([q.lat, q.lon], { radius: Math.max(5, (q.mag || 2) * 2.6), color: c, fillColor: c, fillOpacity: 0.6, weight: 1.5 })
+          .addTo(map).bindPopup(info);
+      });
+
+      var legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function () {
+        var box = L.DomUtil.create('div', 'legend');
+        box.innerHTML = '<strong>Nivel de riesgo</strong><br>' +
+          '<i style="background:#3FA36B"></i>Bajo<br><i style="background:#D99A06"></i>Medio<br>' +
+          '<i style="background:#E8590C"></i>Alto<br><i style="background:#C81E1E"></i>Crítico<br>' +
+          '<strong>Sismos</strong><br><i class="round" style="background:#c99700"></i>M&lt;4 ' +
+          '<i class="round" style="background:#e0701a"></i>M4–5 <i class="round" style="background:#b42318"></i>M≥5';
+        return box;
+      };
+      legend.addTo(map);
+    }
+
+    var canvas = document.getElementById('history-chart');
+    if (canvas) {
+      if (typeof Chart === 'undefined') {
+        canvas.parentNode.innerHTML = '<p class="muted">No se pudo cargar el gráfico. Revisa tu conexión a internet.</p>';
+      } else {
+        var chart = JSON.parse(document.getElementById('chart-data').textContent);
+        var limit = chart.scores.map(function () { return 50; });
+        new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: chart.labels,
+            datasets: [
+              { label: 'Puntaje general (0-100)', data: chart.scores, tension: 0.3, borderColor: '#0b6bcb',
+                backgroundColor: 'rgba(11,107,203,.14)', fill: true, pointRadius: 4, pointBackgroundColor: '#0b6bcb' },
+              { label: 'Límite de riesgo alto (50)', data: limit, borderColor: '#d9480f', borderDash: [6, 6], pointRadius: 0, fill: false }
+            ]
+          },
+          options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+        });
+      }
+    }
+  })();
+</script>
+{% endblock %}

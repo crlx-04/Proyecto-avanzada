@@ -61,3 +61,9 @@ class QuakesNearTests(TestCase):
     def test_solo_devuelve_sismos_cercanos_y_recientes(self):
         found = quakes_near(11.54, -72.91, 300, 30)
         self.assertEqual([q.usgs_id for q in found], ["cerca"])
+
+    def test_la_ventana_puede_terminar_en_el_pasado(self):
+        # "viejo" tiene 60 días: cae en la ventana de 30 días que terminó hace 50
+        until = timezone.now() - timedelta(days=50)
+        found = quakes_near(11.54, -72.91, 300, 30, until=until)
+        self.assertEqual([q.usgs_id for q in found], ["viejo"])

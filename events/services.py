@@ -34,17 +34,20 @@ def refresh_quakes(lat, lon, radius_km, days):
     return saved
 
 
-def quakes_near(lat, lon, radius_km, days):
+def quakes_near(lat, lon, radius_km, days, until=None):
     """Sismos ya guardados en la base de datos dentro de `radius_km` de un punto.
 
+    La ventana de tiempo son los `days` días que terminan en `until` (por defecto, ahora).
     Primero filtra con un cuadro aproximado (rápido, lo hace la base de datos)
     y luego con la distancia exacta. No cubre el cruce del meridiano 180°.
     """
-    since = timezone.now() - timedelta(days=days)
+    end = until or timezone.now()
+    start = end - timedelta(days=days)
     lat_margin = radius_km / KM_PER_DEGREE
     lon_margin = radius_km / (KM_PER_DEGREE * max(cos(radians(lat)), 0.01))
     candidates = Quake.objects.filter(
-        time__gte=since,
+        time__gte=start,
+        time__lte=end,
         latitude__range=(lat - lat_margin, lat + lat_margin),
         longitude__range=(lon - lon_margin, lon + lon_margin),
     )

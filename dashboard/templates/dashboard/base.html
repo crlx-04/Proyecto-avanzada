@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b2a4a'/%3E%3Cpath d='M6 19c3-5 6 5 10 0s7 5 10 0' stroke='%2358b4ff' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <title>{% block title %}NDIP · Riesgo por ubicación{% endblock %}</title>
+  <style>
+    :root {
+      --bg:#EEF2F6; --card:#FFFFFF; --text:#16232F; --muted:#5A6B7B; --border:#E1E7EE;
+      --accent:#0B6E99; --accent-soft:#E4F1F7; --navy:#0C2233; --navy2:#0C2233;
+      --shadow:0 1px 2px rgba(12,34,51,.04), 0 10px 28px -12px rgba(12,34,51,.14);
+      --bajo:#3FA36B; --medio:#D99A06; --alto:#E8590C; --critico:#C81E1E;
+      --font-h:'Space Grotesk', Inter, system-ui, sans-serif;
+      --side:248px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0A1620; --card:#102232; --text:#E8EEF3; --muted:#9DB2C4; --border:#1E3548;
+              --accent:#5CC8F5; --accent-soft:#12324A; --navy:#07141F; --navy2:#07141F;
+              --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -12px rgba(0,0,0,.5); }
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:14px; background:var(--bg); color:var(--text); line-height:1.55; }
+    a { color:var(--accent); }
+    h1,h2,h3 { line-height:1.2; margin:0 0 .5rem; font-family:var(--font-h); }
+    .muted { color:var(--muted); }
+
+    /* Iconos de línea (sprite SVG, sin emojis) */
+    .i { width:1.15em; height:1.15em; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; vertical-align:-.2em; flex:none; }
+    .panel > header .i { opacity:.95; }
+    .btn .i { width:1.05em; height:1.05em; }
+
+    /* ---------- Estructura: barra lateral + contenido ---------- */
+    .shell { display:grid; grid-template-columns:var(--side) 1fr; min-height:100vh; }
+    .sidebar { position:sticky; top:0; height:100vh; background:var(--navy); color:#B9C9D8; display:flex; flex-direction:column; gap:4px; padding:22px 16px; overflow-y:auto; }
+    .brand { display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff; padding:2px 8px 14px; }
+    .brand .logo { width:40px; height:40px; border-radius:12px; background:#0B6E99; display:grid; place-items:center; color:#fff; flex:none; }
+    .brand .logo .i { width:22px; height:22px; }
+    .brand strong { display:block; font-family:var(--font-h); font-size:18px; letter-spacing:.02em; }
+    .brand small { display:block; font-size:12px; color:#9DB2C4; }
+    .sec { font-size:11px; font-weight:600; letter-spacing:1.2px; color:#7F97AB; padding:14px 12px 6px; }
+    .nav { display:flex; flex-direction:column; gap:4px; }
+    .nav a { display:flex; align-items:center; gap:12px; color:#B9C9D8; text-decoration:none; padding:11px 12px; border-radius:10px; font-weight:500; transition:background .15s, color .15s; }
+    .nav a:hover { background:rgba(255,255,255,.06); color:#fff; }
+    .nav a.active { background:rgba(56,189,248,.16); color:#fff; font-weight:600; }
+    .nav a.active .i { color:#5CC8F5; }
+    .nav .ico { display:flex; }
+    .nav .i { width:20px; height:20px; }
+    .src { margin-top:auto; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .src strong { font-size:12px; color:#fff; }
+    .src a { display:flex; align-items:center; gap:8px; font-size:12px; color:#B9C9D8; text-decoration:none; }
+    .src a:hover { color:#fff; }
+    .src .dot { width:8px; height:8px; border-radius:50%; background:#5CC8F5; flex:none; }
+    .main { min-width:0; }
+    .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 28px; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
+    .topbar .ttl { flex-grow:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .topbar h1 { margin:0; font-size:22px; font-weight:700; }
+    .topbar .sub { color:var(--muted); font-size:13px; }
+    .topbar .menu { display:none; background:none; border:0; color:var(--text); cursor:pointer; width:44px; height:44px; place-items:center; }
+    .topbar .menu .i { width:24px; height:24px; }
+    .pill-info { display:flex; align-items:center; gap:8px; background:var(--accent-soft); border:1px solid var(--border); border-radius:999px; padding:6px 14px; font-size:13px; font-weight:500; }
+    .content { padding:24px 28px 32px; max-width:1220px; margin:0 auto; }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns:1fr; }
+      .sidebar { position:fixed; z-index:40; width:var(--side); transform:translateX(-100%); transition:transform .25s; }
+      .sidebar.open { transform:none; }
+      .topbar .menu { display:block; }
+    }
+
+    /* ---------- Avisos ---------- */
+    .notice .i { margin-top:.15rem; }
+    .notice { display:flex; gap:.6rem; background:#fff8e1; color:#5c4400; border:1px solid #f1dc9a; border-radius:12px; padding:.6rem .9rem; font-size:.88rem; margin:0 0 1rem; }
+    @media (prefers-color-scheme: dark) { .notice { background:#352d12; color:#f3e2a6; border-color:#6b5a1c; } }
+    .msg { padding:.75rem 1rem; border-radius:12px; margin:0 0 1rem; background:#e6f4ea; color:#14532d; border:1px solid #b7dfc2; }
+    .msg.error { background:#fdecec; color:#7f1d1d; border-color:#f3b9b9; }
+    @media (prefers-color-scheme: dark) {
+      .msg { background:#12301c; color:#b9e8c6; border-color:#24553a; }
+      .msg.error { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
+    }
+
+    /* ---------- Paneles (cabecera azul marino) ---------- */
+    .panel { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+    .panel > header { padding:20px 22px 0; font-family:var(--font-h); font-weight:600; font-size:16px; display:flex; align-items:center; gap:10px; color:var(--text); }
+    .panel > header .i { color:var(--accent); }
+    .panel > header .right { margin-left:auto; font-family:Inter,system-ui,sans-serif; font-weight:400; font-size:12px; color:var(--muted); }
+    .panel > header a.right { color:var(--accent); font-weight:600; text-decoration:none; font-size:13px; }
+    .panel .body { padding:14px 22px 22px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; box-shadow:var(--shadow); }
+    .grid { display:grid; gap:1rem; }
+    .grid.cols-3 { grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+    .section-title { font-size:16px; margin:24px 0 12px; }
+
+    /* ---------- Botones y etiquetas ---------- */
+    .btn { display:inline-flex; align-items:center; gap:.45rem; justify-content:center; background:var(--accent); color:#fff; border:0; border-radius:12px; padding:.75rem 1.3rem; font-size:15px; font-weight:700; cursor:pointer; text-decoration:none; transition:background .15s; min-height:44px; }
+    .btn:hover { filter:brightness(.92); }
+    .btn:disabled { opacity:.6; cursor:wait; }
+    .btn.block { width:100%; }
+    .btn.secondary { background:var(--card); color:var(--text); border:1px solid var(--border); font-weight:600; }
+    .btn.secondary:hover { filter:none; background:var(--accent-soft); }
+    .btn.small { padding:0 14px; min-height:40px; font-size:13px; border-radius:10px; }
+    .chip { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:999px; padding:.35rem .85rem; cursor:pointer; font-size:.88rem; transition:all .15s; }
+    .chip:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+    .chips { display:flex; flex-wrap:wrap; gap:.45rem; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+    .badge::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+    .badge.bajo { background:#E3F4EA; color:#1E7A45; } .badge.medio { background:#FDF1D3; color:#8A5A00; }
+    .badge.alto { background:#FDE7DA; color:#B5420A; } .badge.critico { background:#FBE1E1; color:#A31616; }
+    @media (prefers-color-scheme: dark) {
+      .badge.bajo { background:#123A27; color:#7BD7A3; } .badge.medio { background:#3A2D0A; color:#F2C95C; }
+      .badge.alto { background:#3E1D0C; color:#FFA26B; } .badge.critico { background:#3F1414; color:#FF9A9A; }
+    }
+    .lvl-bajo { --c:var(--bajo); } .lvl-medio { --c:var(--medio); }
+    .lvl-alto { --c:var(--alto); } .lvl-critico { --c:var(--critico); }
+
+    table { width:100%; border-collapse:collapse; font-size:.94rem; }
+    th { text-align:left; color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+    th,td { padding:.6rem .5rem; border-bottom:1px solid var(--border); }
+    tr:last-child td { border-bottom:0; }
+    .table-scroll { overflow-x:auto; }
+    footer { margin:2rem 0 0; padding-top:1rem; border-top:1px solid var(--border); color:var(--muted); font-size:.85rem; }
+
+    /* ---------- Espera mientras se consultan las APIs ---------- */
+    .overlay { position:fixed; inset:0; background:rgba(8,18,28,.6); display:none; place-items:center; z-index:60; }
+    .overlay.show { display:grid; }
+    .overlay .box { background:var(--card); border-radius:16px; padding:1.6rem 2rem; text-align:center; box-shadow:var(--shadow); max-width:320px; }
+    .spinner { width:42px; height:42px; border:4px solid var(--border); border-top-color:var(--accent); border-radius:50%; margin:0 auto .8rem; animation:spin .9s linear infinite; }
+
+    /* ---------- Animaciones ---------- */
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+    @keyframes floaty { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+    @keyframes pulse { 0% { transform:scale(.4); opacity:.7; } 100% { transform:scale(1.6); opacity:0; } }
+    .reveal { opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity:1; transform:none; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation:none !important; transition:none !important; }
+      .reveal { opacity:1; transform:none; }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 8a4 4 0 0 1 0 8"/><path d="M8 18v3M12 18v3M16 18v3"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 11a4 4 0 0 1 0 8z"/></symbol>
+    <symbol id="i-forecast" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M8 2v1M2 8h1M3.8 3.8l.7.7M12.2 3.8l-.7.7"/><path d="M9 20a3.5 3.5 0 0 1-.4-7A5 5 0 0 1 18 14a3 3 0 0 1 0 6z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></symbol>
+    <symbol id="i-mountain" viewBox="0 0 24 24"><path d="M3 20l6-12 3 5 3-4 6 11z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  </defs>
+</svg>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="{% url 'dashboard:home' %}">
+        <span class="logo"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <span><strong>NDIP</strong><small>Riesgo de lluvias y sismos</small></span>
+      </a>
+      <span class="sec">MONITOREO</span>
+      <nav class="nav" aria-label="Menú principal">
+        <a href="{% url 'dashboard:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-map"/></svg></span>Evaluar</a>
+        <a href="{% url 'dashboard:history' %}" class="{% if request.resolver_match.url_name == 'history' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg></span>Historial</a>
+      </nav>
+      <div class="src">
+        <strong>Fuentes de datos</strong>
+        <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener"><span class="dot"></span>USGS · sismos</a>
+        <a href="https://open-meteo.com/" target="_blank" rel="noopener"><span class="dot"></span>Open-Meteo · lluvia</a>
+        <a href="https://www.ideam.gov.co" target="_blank" rel="noopener"><span class="dot"></span>IDEAM · avisos oficiales</a>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="menu" type="button" id="menu-btn" aria-label="Abrir menú"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
+        <div class="ttl">
+          <h1>{% block pagetitle %}NDIP{% endblock %}</h1>
+          <span class="sub">{% now "l j \d\e F \d\e Y" %}</span>
+        </div>
+        {% block topinfo %}{% endblock %}
+      </header>
+
+      <div class="content">
+        {% if disclaimer %}
+          <div class="notice" role="note"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><span><strong>Importante:</strong> {{ disclaimer }}</span></div>
+        {% endif %}
+        {% for message in messages %}<div class="msg {{ message.tags }}" role="alert">{{ message }}</div>{% endfor %}
+        {% block content %}{% endblock %}
+
+        <footer>
+          <p>
+            Datos abiertos: <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a> (sismos)
+            y <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (lluvia).
+            Mapa: © OpenStreetMap, © CARTO, Esri.
+            · Proyecto académico · Programación Avanzada · Universidad de La Guajira.
+            Fuentes oficiales: <a href="https://www.ideam.gov.co" target="_blank" rel="noopener">IDEAM</a> ·
+            <a href="https://www.sgc.gov.co" target="_blank" rel="noopener">Servicio Geológico Colombiano</a>.
+          </p>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" aria-live="polite">
+    <div class="box"><div class="spinner"></div><strong>Evaluando…</strong><p class="muted" style="margin:.3rem 0 0">Consultando Open-Meteo y USGS. Puede tardar unos segundos.</p></div>
+  </div>
+
+  <script>
+    document.getElementById('menu-btn').addEventListener('click', function () {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+    // Si el usuario vuelve con el botón "atrás", se quita la pantalla de espera
+    window.addEventListener('pageshow', function () {
+      var overlay = document.getElementById('overlay');
+      if (overlay) overlay.classList.remove('show');
+      document.querySelectorAll('button[data-loading]').forEach(function (b) { b.disabled = false; });
+    });
+    // Los formularios marcados con data-evaluate muestran la pantalla de espera al enviarse
+    document.querySelectorAll('form[data-evaluate]').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        document.getElementById('overlay').classList.add('show');
+        form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = true; b.setAttribute('data-loading', '1'); });
+      });
+    });
+    // Aparición suave al hacer scroll
+    (function () {
+      var items = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) { items.forEach(function (e) { e.classList.add('in'); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+      }, { threshold: 0.1 });
+      items.forEach(function (e, i) { e.style.transitionDelay = ((i % 4) * 70) + 'ms'; io.observe(e); });
+    })();
+    // Números que cuentan hasta su valor (data-count="45")
+    document.querySelectorAll('[data-count]').forEach(function (el) {
+      var target = parseInt(el.dataset.count, 10), start = null;
+      if (isNaN(target)) return;
+      function tick(ts) {
+        if (start === null) start = ts;
+        var p = Math.min(1, (ts - start) / 900);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  </script>
+</body>
+</html>

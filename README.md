@@ -1,6 +1,6 @@
 # Natural Disaster Intelligence Platform (NDIP)
 
->Proyecto final de **Programación Avanzada A1** — Universidad de La Guajira, periodo 2026-2.
+> Nombre de trabajo. Proyecto final de **Programación Avanzada A1** — Universidad de La Guajira, periodo 20262.
 
 Aplicación web en Django que **estima el nivel de riesgo de una ubicación** combinando la lluvia reciente y prevista con la actividad sísmica de la zona, y explica el resultado en lenguaje simple.
 
@@ -82,7 +82,30 @@ source .venv/Scripts/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
-``
+```
+
+Abre http://127.0.0.1:8000/. Para entrar a `/admin/` crea antes un usuario con `python manage.py createsuperuser`.
+
+### Probar el cálculo de riesgo
+
+```bash
+python manage.py shell
+```
+
+```python
+from risk.services import assess_location
+a = assess_location(11.54, -72.91)   # Riohacha
+print(a.level, a.score)
+print(a.explanation)
+```
+
+### Pruebas
+
+```bash
+python manage.py test
+```
+
+Las pruebas usan datos simulados, así que no necesitan internet.
 
 ## Limitaciones conocidas
 
