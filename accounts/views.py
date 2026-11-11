@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from dashboard.services import PLACES
 from integrations.errors import ExternalAPIError
-from risk.models import RiskAssessment
+from risk.access import as_int, visible_to
 from risk.services import DISCLAIMER
 
 from .forms import MAX_ZONES, RegisterForm, ZoneForm
@@ -49,6 +49,18 @@ def zones(request):
             "form": form,
             "zones": ranked,
             "summary": summary(ranked),
+            "zones_map": [
+                {
+                    "name": z.name,
+                    "lat": z.latitude,
+                    "lon": z.longitude,
+                    "radius_km": z.radius_km,
+                    "score": z.latest.score if z.latest else None,
+                    "level": z.latest.level if z.latest else None,
+                    "label": z.latest.get_level_display() if z.latest else "Sin evaluar",
+                }
+                for z in ranked
+            ],
             "places": PLACES,
             "max_zones": MAX_ZONES,
             "disclaimer": DISCLAIMER,
@@ -75,6 +87,8 @@ def zone_evaluate(request, pk):
     except ExternalAPIError as error:
         messages.error(request, f"{ERROR_PREFIX} ({error})")
         return redirect("accounts:zones")
+    if assessment.new_alerts:
+        messages.warning(request, f"Se activó {len(assessment.new_alerts)} alerta(s). Revísalas en Alertas.")
     return redirect("dashboard:detail", pk=assessment.pk)
 
 
@@ -82,15 +96,17 @@ def zone_evaluate(request, pk):
 @require_POST
 def zones_evaluate_all(request):
     """Evalúa todas las zonas. Si una falla, sigue con las demás y avisa al final."""
-    done, failed = 0, []
+    done, failed, new_alerts = 0, [], 0
     for zone in Zone.objects.filter(user=request.user):
         try:
-            evaluate_zone(zone)
+            new_alerts += len(evaluate_zone(zone).new_alerts)
             done += 1
         except ExternalAPIError:
             failed.append(zone.name)
     if done:
         messages.success(request, f"Se evaluaron {done} zona(s).")
+    if new_alerts:
+        messages.warning(request, f"Se activaron {new_alerts} alerta(s). Revísalas en Alertas.")
     if failed:
         messages.error(request, "No se pudo evaluar: " + ", ".join(failed) + ". Inténtalo de nuevo.")
     return redirect("accounts:zones")
@@ -99,8 +115,11 @@ def zones_evaluate_all(request):
 @login_required
 @require_POST
 def zone_save(request):
-    """Guarda como zona el lugar de una evaluación que el usuario acaba de ver."""
-    assessment = get_object_or_404(RiskAssessment, pk=request.POST.get("assessment_id"))
+    """Guarda como zona el lugar de una evaluación que la persona acaba de ver (y es suya)."""
+    assessment = get_object_or_404(visible_to(request), pk=as_int(request.POST.get("assessment_id")))
+    if assessment.zone_id is not None:
+        messages.error(request, "Esa evaluación ya pertenece a una zona guardada.")
+        return redirect("dashboard:detail", pk=assessment.pk)
     # Las coordenadas salen de la evaluación guardada, no del formulario
     data = {
         "name": request.POST.get("name", ""),
@@ -112,7 +131,8 @@ def zone_save(request):
     if form.is_valid():
         zone = Zone.objects.create(user=request.user, **form.cleaned_data)
         assessment.zone = zone
-        assessment.save(update_fields=["zone"])
+        assessment.owner = request.user
+        assessment.save(update_fields=["zone", "owner"])
         messages.success(request, f"Zona «{zone.name}» guardada en tu lista.")
     else:
         for errors in form.errors.values():

@@ -1,4 +1,5 @@
 """Lógica de las zonas guardadas: ordenarlas por riesgo y evaluarlas."""
+from alerts.services import check_rules
 from risk.services import assess_location
 
 
@@ -29,5 +30,7 @@ def evaluate_zone(zone):
     """
     assessment = assess_location(zone.latitude, zone.longitude, zone.radius_km)
     assessment.zone = zone
-    assessment.save(update_fields=["zone"])
+    assessment.owner = zone.user
+    assessment.save(update_fields=["zone", "owner"])
+    assessment.new_alerts = check_rules(assessment)  # revisa las reglas del usuario con estos datos
     return assessment

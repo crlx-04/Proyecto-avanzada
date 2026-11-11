@@ -1,5 +1,5 @@
 """Cliente de la API de sismos del USGS (United States Geological Survey)."""
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -18,12 +18,15 @@ def fetch_quakes(lat, lon, radius_km, days):
 
     Lanza ExternalAPIError si el servicio no responde o la respuesta es inválida.
     """
+    # Ventana exacta de `days` días terminando ahora (en UTC), la misma que luego se muestra en el detalle
+    now = datetime.now(timezone.utc)
     params = {
         "format": "geojson",
         "latitude": lat,
         "longitude": lon,
         "maxradiuskm": radius_km,
-        "starttime": (date.today() - timedelta(days=days)).isoformat(),
+        "starttime": (now - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S"),
+        "endtime": now.strftime("%Y-%m-%dT%H:%M:%S"),
         "orderby": "time",
     }
     try:

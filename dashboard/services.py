@@ -53,9 +53,14 @@ def label_for(lat, lon):
     return None
 
 
-def zone_history(assessment, max_km=SAME_ZONE_KM, limit=30):
-    """Evaluaciones de la misma zona (incluida `assessment`), de la más antigua a la más reciente."""
-    recent = RiskAssessment.objects.all()[:CANDIDATES_LIMIT]  # ya vienen de la más nueva a la más vieja
+def zone_history(assessment, max_km=SAME_ZONE_KM, limit=30, queryset=None):
+    """Evaluaciones de la misma zona (incluida `assessment`), de la más antigua a la más reciente.
+
+    `queryset` limita las candidatas a las que la persona puede ver (por defecto, todas).
+    """
+    if queryset is None:
+        queryset = RiskAssessment.objects.all()
+    recent = queryset[:CANDIDATES_LIMIT]  # ya vienen de la más nueva a la más vieja
     same_zone = [
         item
         for item in recent

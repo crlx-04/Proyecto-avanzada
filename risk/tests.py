@@ -106,3 +106,26 @@ class AssessLocationTests(TestCase):
         with self.assertRaises(ExternalAPIError):
             assess_location(11.54, -72.91)
         self.assertEqual(RiskAssessment.objects.count(), 0)
+
+
+class SourceCheckTests(TestCase):
+    @patch("integrations.usgs.fetch_quakes", return_value=[])
+    @patch("integrations.open_meteo.fetch_precipitation")
+    def test_registra_consultas_exitosas_y_guarda_lluvia_diaria(self, rain, _quakes):
+        from .models import SourceCheck
+        daily = [{"date": None, "mm": 1.0, "forecast": False}]
+        rain.return_value = {"past_mm": 1.0, "forecast_mm": 0.0, "daily": daily}
+        assessment = assess_location(11.54, -72.91)
+        self.assertEqual(assessment.rain_daily, daily)
+        self.assertEqual(set(SourceCheck.objects.filter(ok=True).values_list("source", flat=True)), {"open_meteo", "usgs"})
+
+    @patch("integrations.usgs.fetch_quakes", side_effect=ExternalAPIError("USGS caído"))
+    @patch("integrations.open_meteo.fetch_precipitation")
+    def test_registra_la_falla_de_una_fuente(self, rain, _quakes):
+        from .models import SourceCheck
+        rain.return_value = {"past_mm": 1.0, "forecast_mm": 1.0}
+        with self.assertRaises(ExternalAPIError):
+            assess_location(11.54, -72.91)
+        failed = SourceCheck.objects.get(ok=False)
+        self.assertEqual(failed.source, "usgs")
+        self.assertIn("USGS caído", failed.detail)

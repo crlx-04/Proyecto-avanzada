@@ -4,12 +4,14 @@ IMPORTANTE: el índice es una estimación basada en reglas simples sobre datos
 recientes. No predice terremotos ni inundaciones. En sismos mide *actividad
 reciente* de la zona, no la probabilidad de que ocurra uno.
 """
+import time
 from dataclasses import dataclass
 
 from events.services import refresh_quakes
 from integrations import open_meteo
+from integrations.errors import ExternalAPIError
 
-from .models import RiskAssessment
+from .models import RiskAssessment, SourceCheck
 
 # --- Lluvia: cada milímetro pesa más si es previsto que si ya cayó ---
 PAST_RAIN_WEIGHT = 0.8
@@ -105,13 +107,27 @@ def compute_risk(past_mm, forecast_mm, magnitudes, radius_km, days):
     )
 
 
+def _checked(source, function, *args):
+    """Llama a una fuente externa y deja registrado si respondió bien y cuánto tardó."""
+    started = time.monotonic()
+    try:
+        result = function(*args)
+    except ExternalAPIError as exc:
+        SourceCheck.objects.create(
+            source=source, ok=False, detail=str(exc)[:255], duration_ms=int((time.monotonic() - started) * 1000)
+        )
+        raise
+    SourceCheck.objects.create(source=source, ok=True, duration_ms=int((time.monotonic() - started) * 1000))
+    return result
+
+
 def assess_location(lat, lon, radius_km=300, days=30):
     """Consulta lluvia y sismos, calcula el riesgo y guarda la evaluación.
 
     Lanza ExternalAPIError si falla alguna de las dos APIs (no guarda nada en ese caso).
     """
-    rain = open_meteo.fetch_precipitation(lat, lon)
-    quakes = refresh_quakes(lat, lon, radius_km, days)
+    rain = _checked(SourceCheck.Source.OPEN_METEO, open_meteo.fetch_precipitation, lat, lon)
+    quakes = _checked(SourceCheck.Source.USGS, refresh_quakes, lat, lon, radius_km, days)
     magnitudes = [quake.magnitude for quake in quakes]
     result = compute_risk(rain["past_mm"], rain["forecast_mm"], magnitudes, radius_km, days)
 
@@ -130,4 +146,5 @@ def assess_location(lat, lon, radius_km=300, days=30):
         score=result.score,
         level=result.level,
         explanation=result.explanation,
+        rain_daily=rain.get("daily", []),
     )

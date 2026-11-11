@@ -15,6 +15,13 @@ User = get_user_model()
 PASSWORD = "clave-segura-2026"
 
 
+def remember(client, *assessments):
+    """Hace que el navegador de prueba sea el autor de estas evaluaciones (así puede verlas)."""
+    session = client.session
+    session["ndip_assessments"] = [a.pk for a in assessments]
+    session.save()
+
+
 def make_assessment(lat=11.54, lon=-72.91, score=30, level="medio", zone=None):
     return RiskAssessment.objects.create(
         latitude=lat, longitude=lon, radius_km=300, days=30,
@@ -171,6 +178,7 @@ class ZoneTests(TestCase):
 
     def test_guardar_zona_desde_una_evaluacion(self):
         assessment = make_assessment()
+        remember(self.client, assessment)
         response = self.client.post(
             reverse("accounts:zone_save"), {"assessment_id": assessment.pk, "name": "Mi finca"}
         )
@@ -182,14 +190,17 @@ class ZoneTests(TestCase):
 
     def test_guardar_zona_sin_nombre_no_crea_nada(self):
         assessment = make_assessment()
+        remember(self.client, assessment)
         self.client.post(reverse("accounts:zone_save"), {"assessment_id": assessment.pk, "name": "  "})
         self.assertEqual(Zone.objects.count(), 0)
 
     def test_el_detalle_ofrece_guardar_solo_con_sesion(self):
         assessment = make_assessment()
+        remember(self.client, assessment)
         url = reverse("dashboard:detail", args=[assessment.pk])
         self.assertContains(self.client.get(url), "Guardar zona")
         self.client.logout()
+        remember(self.client, assessment)  # el visitante anónimo también es el autor de su evaluación
         anonymous = self.client.get(url)
         self.assertContains(anonymous, "Inicia sesión para guardar")
         self.assertNotContains(anonymous, "Guardar zona")
@@ -223,3 +234,17 @@ class ServiceTests(TestCase):
         make_assessment(score=10, level="bajo", zone=zone)
         newest = make_assessment(score=60, level="alto", zone=zone)
         self.assertEqual(zones_ranked([zone])[0].latest, newest)
+
+
+class ZonesMapTests(TestCase):
+    def test_mapa_de_zonas_incluye_nivel_de_cada_zona(self):
+        user = User.objects.create_user("ana", password=PASSWORD)
+        evaluated = Zone.objects.create(user=user, name="Casa", latitude=11.5, longitude=-72.9)
+        Zone.objects.create(user=user, name="Finca", latitude=10.1, longitude=-73.2)
+        make_assessment(score=80, level="critico", zone=evaluated)
+        self.client.login(username="ana", password=PASSWORD)
+        response = self.client.get(reverse("accounts:zones"))
+        data = {z["name"]: z for z in response.context["zones_map"]}
+        self.assertEqual(data["Casa"]["level"], "critico")
+        self.assertIsNone(data["Finca"]["level"])
+        self.assertContains(response, 'id="overview-map"')

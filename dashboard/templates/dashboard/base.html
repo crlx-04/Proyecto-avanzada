@@ -1,11 +1,22 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b2a4a'/%3E%3Cpath d='M6 19c3-5 6 5 10 0s7 5 10 0' stroke='%2358b4ff' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/vendor/fonts/fonts.css' %}">
+  <script>
+    /* Tema guardado por el usuario; si no hay, el del sistema. Se aplica antes de pintar para evitar parpadeos. */
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem('ndip-theme'); } catch (e) {}
+      if (theme !== 'dark' && theme !== 'light') {
+        theme = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <title>{% block title %}NDIP · Riesgo por ubicación{% endblock %}</title>
   <style>
     :root {
@@ -16,10 +27,12 @@
       --font-h:'Space Grotesk', Inter, system-ui, sans-serif;
       --side:248px;
     }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg:#0A1620; --card:#102232; --text:#E8EEF3; --muted:#9DB2C4; --border:#1E3548;
-              --accent:#5CC8F5; --accent-soft:#12324A; --navy:#07141F; --navy2:#07141F;
-              --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -12px rgba(0,0,0,.5); }
+    /* Modo oscuro: se activa con data-theme="dark" en <html> (botón de la barra superior) */
+    html[data-theme="dark"] {
+      --bg:#0A1620; --card:#102232; --text:#E8EEF3; --muted:#9DB2C4; --border:#1E3548;
+      --accent:#5CC8F5; --accent-soft:#12324A; --navy:#07141F; --navy2:#07141F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -12px rgba(0,0,0,.5);
+      color-scheme:dark;
     }
     * { box-sizing:border-box; }
     html { scroll-behavior:smooth; }
@@ -46,6 +59,7 @@
     .nav a { display:flex; align-items:center; gap:12px; color:#B9C9D8; text-decoration:none; padding:11px 12px; border-radius:10px; font-weight:500; transition:background .15s, color .15s; }
     .nav a:hover { background:rgba(255,255,255,.06); color:#fff; }
     .nav a.active { background:rgba(56,189,248,.16); color:#fff; font-weight:600; }
+    .nbadge { margin-left:auto; background:#E8590C; color:#fff; font-size:11px; font-weight:700; border-radius:999px; padding:1px 8px; min-width:20px; text-align:center; }
     .nav a.active .i { color:#5CC8F5; }
     .nav .ico { display:flex; }
     .nav .i { width:20px; height:20px; }
@@ -55,16 +69,14 @@
     .user { display:flex; align-items:center; gap:10px; padding:8px 12px; color:#fff; font-weight:600; }
     .user .av { width:34px; height:34px; border-radius:50%; background:#5CC8F5; color:#0C2233; display:grid; place-items:center; font-weight:700; text-transform:uppercase; flex:none; }
     .user small { display:block; color:#9DB2C4; font-weight:400; font-size:12px; }
-    .src { margin-top:auto; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
-    .src strong { font-size:12px; color:#fff; }
-    .src a { display:flex; align-items:center; gap:8px; font-size:12px; color:#B9C9D8; text-decoration:none; }
-    .src a:hover { color:#fff; }
-    .src .dot { width:8px; height:8px; border-radius:50%; background:#5CC8F5; flex:none; }
     .main { min-width:0; }
     .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 28px; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
     .topbar .ttl { flex-grow:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
     .topbar h1 { margin:0; font-size:22px; font-weight:700; }
     .topbar .sub { color:var(--muted); font-size:13px; }
+    .theme { background:none; border:1px solid var(--border); color:var(--text); border-radius:10px; width:40px; height:40px; display:inline-grid; place-items:center; cursor:pointer; flex:none; }
+    .theme:hover { background:var(--accent-soft); }
+    .theme .sun { display:none; } html[data-theme="dark"] .theme .sun { display:block; } html[data-theme="dark"] .theme .moon { display:none; }
     .topbar .menu { display:none; background:none; border:0; color:var(--text); cursor:pointer; width:44px; height:44px; place-items:center; }
     .topbar .menu .i { width:24px; height:24px; }
     .pill-info { display:flex; align-items:center; gap:8px; background:var(--accent-soft); border:1px solid var(--border); border-radius:999px; padding:6px 14px; font-size:13px; font-weight:500; }
@@ -79,13 +91,13 @@
     /* ---------- Avisos ---------- */
     .notice .i { margin-top:.15rem; }
     .notice { display:flex; gap:.6rem; background:#fff8e1; color:#5c4400; border:1px solid #f1dc9a; border-radius:12px; padding:.6rem .9rem; font-size:.88rem; margin:0 0 1rem; }
-    @media (prefers-color-scheme: dark) { .notice { background:#352d12; color:#f3e2a6; border-color:#6b5a1c; } }
+    html[data-theme="dark"] .notice { background:#352d12; color:#f3e2a6; border-color:#6b5a1c; }
     .msg { padding:.75rem 1rem; border-radius:12px; margin:0 0 1rem; background:#e6f4ea; color:#14532d; border:1px solid #b7dfc2; }
+    .msg.warning { background:#fff4e5; color:#7a3e00; border-color:#f3d0a0; }
     .msg.error { background:#fdecec; color:#7f1d1d; border-color:#f3b9b9; }
-    @media (prefers-color-scheme: dark) {
-      .msg { background:#12301c; color:#b9e8c6; border-color:#24553a; }
-      .msg.error { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
-    }
+    html[data-theme="dark"] .msg { background:#12301c; color:#b9e8c6; border-color:#24553a; }
+    html[data-theme="dark"] .msg.warning { background:#3a2a0e; color:#f3d9a6; border-color:#6b4f1c; }
+    html[data-theme="dark"] .msg.error { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
 
     /* ---------- Paneles (cabecera azul marino) ---------- */
     .panel { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
@@ -115,10 +127,8 @@
     .badge::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
     .badge.bajo { background:#E3F4EA; color:#1E7A45; } .badge.medio { background:#FDF1D3; color:#8A5A00; }
     .badge.alto { background:#FDE7DA; color:#B5420A; } .badge.critico { background:#FBE1E1; color:#A31616; }
-    @media (prefers-color-scheme: dark) {
-      .badge.bajo { background:#123A27; color:#7BD7A3; } .badge.medio { background:#3A2D0A; color:#F2C95C; }
-      .badge.alto { background:#3E1D0C; color:#FFA26B; } .badge.critico { background:#3F1414; color:#FF9A9A; }
-    }
+    html[data-theme="dark"] .badge.bajo { background:#123A27; color:#7BD7A3; } html[data-theme="dark"] .badge.medio { background:#3A2D0A; color:#F2C95C; }
+    html[data-theme="dark"] .badge.alto { background:#3E1D0C; color:#FFA26B; } html[data-theme="dark"] .badge.critico { background:#3F1414; color:#FF9A9A; }
     .lvl-bajo { --c:var(--bajo); } .lvl-medio { --c:var(--medio); }
     .lvl-alto { --c:var(--alto); } .lvl-critico { --c:var(--critico); }
 
@@ -166,6 +176,9 @@
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
     <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></symbol>
     <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
@@ -194,8 +207,11 @@
       <span class="sec">MONITOREO</span>
       <nav class="nav" aria-label="Menú principal">
         <a href="{% url 'dashboard:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-map"/></svg></span>Evaluar</a>
+        {% if user.is_authenticated %}<a href="{% url 'dashboard:panel' %}" class="{% if request.resolver_match.url_name == 'panel' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-bars"/></svg></span>Panel</a>{% endif %}
         {% if user.is_authenticated %}<a href="{% url 'accounts:zones' %}" class="{% if request.resolver_match.url_name == 'zones' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></span>Mis zonas</a>{% endif %}
+        {% if user.is_authenticated %}<a href="{% url 'alerts:list' %}" class="{% if request.resolver_match.app_name == 'alerts' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span>Alertas{% if unread_alerts %}<span class="nbadge" aria-label="{{ unread_alerts }} sin ver">{{ unread_alerts }}</span>{% endif %}</a>{% endif %}
         <a href="{% url 'dashboard:history' %}" class="{% if request.resolver_match.url_name == 'history' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg></span>Historial</a>
+        <a href="{% url 'dashboard:demo' %}" class="{% if request.resolver_match.url_name == 'demo' %}active{% endif %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg></span>Demostración</a>
       </nav>
       <span class="sec">CUENTA</span>
       {% if user.is_authenticated %}
@@ -207,12 +223,6 @@
           <a href="{% url 'accounts:register' %}"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></span>Crear cuenta</a>
         </nav>
       {% endif %}
-      <div class="src">
-        <strong>Fuentes de datos</strong>
-        <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener"><span class="dot"></span>USGS · sismos</a>
-        <a href="https://open-meteo.com/" target="_blank" rel="noopener"><span class="dot"></span>Open-Meteo · lluvia</a>
-        <a href="https://www.ideam.gov.co" target="_blank" rel="noopener"><span class="dot"></span>IDEAM · avisos oficiales</a>
-      </div>
     </aside>
 
     <div class="main">
@@ -223,6 +233,7 @@
           <span class="sub">{% now "l j" as d_ %}{% now "F" as m_ %}{% now "Y" as y_ %}{{ d_ }} de {{ m_|lower }} de {{ y_ }}</span>
         </div>
         {% block topinfo %}{% endblock %}
+        <button type="button" class="theme" id="theme-toggle" aria-label="Cambiar entre modo claro y oscuro" title="Modo claro / oscuro"><svg class="i moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="i sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
       </header>
 
       <div class="content">
@@ -267,6 +278,18 @@
         form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = true; b.setAttribute('data-loading', '1'); });
       });
     });
+    // Cambio de modo claro / oscuro (se recuerda en este navegador)
+    (function () {
+      var button = document.getElementById('theme-toggle');
+      if (!button) return;
+      button.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('ndip-theme', next); } catch (e) {}
+        // Los gráficos toman sus colores al dibujarse, así que se recarga la página si hay alguno
+        if (document.querySelector('canvas')) { location.reload(); }
+      });
+    })();
     // Aparición suave al hacer scroll
     (function () {
       var items = document.querySelectorAll('.reveal');

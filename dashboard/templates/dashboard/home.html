@@ -1,9 +1,10 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% load l10n %}
 {% block title %}Evaluar una ubicación · NDIP{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="{% static 'dashboard/vendor/leaflet/leaflet.css' %}">
+<script src="{% static 'dashboard/vendor/leaflet/leaflet.js' %}"></script>
 <style>
   .hero { background:var(--navy); color:#fff; border-radius:20px; padding:28px 32px; margin-bottom:20px; box-shadow:0 18px 40px -22px rgba(12,34,51,.6); }
   .hero .eyebrow { font-size:12px; font-weight:600; letter-spacing:1.4px; color:#5CC8F5; }
@@ -52,6 +53,7 @@
   <span class="eyebrow">EVALUACIÓN POR UBICACIÓN</span>
   <h2>¿Qué tan expuesta está tu ubicación?</h2>
   <p>Elige un lugar en el mapa o escribe sus coordenadas. Combinamos la lluvia reciente y prevista con la actividad sísmica de la zona y te explicamos el resultado en palabras simples.</p>
+  <p style="margin-top:14px"><a class="btn secondary small" href="{% url 'dashboard:demo' %}"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg> Ver demostración sin conexión</a></p>
 </section>
 
 <div class="main-grid">

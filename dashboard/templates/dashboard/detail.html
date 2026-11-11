@@ -1,10 +1,17 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% load l10n %}
 {% block title %}Resultado · NDIP{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  .demo-banner { display:flex; gap:12px; align-items:flex-start; background:#EAF4FB; border:1px solid #BCDDF0; color:#0C2233; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:14px; }
+  .demo-banner .i { color:var(--accent); margin-top:2px; flex:none; }
+  .leaflet-container { background:#E8EEF3; }
+  .leaflet-container.offline::after { content:"Sin conexión: mapa base no disponible"; position:absolute; left:50%; top:10px; transform:translateX(-50%); z-index:500; white-space:nowrap; background:rgba(12,34,51,.82); color:#fff; font-size:12px; padding:4px 12px; border-radius:999px; pointer-events:none; }
+</style>
+<link rel="stylesheet" href="{% static 'dashboard/vendor/leaflet/leaflet.css' %}">
+<script src="{% static 'dashboard/vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'dashboard/vendor/chart.umd.min.js' %}"></script>
 <style>
   @property --p { syntax:'<number>'; inherits:false; initial-value:0; }
   @keyframes fillgauge { from { --p:0; } }
@@ -65,10 +72,10 @@
   .alert-box.warn { background:#fdecec; color:#7f1d1d; border:1px solid #f3b9b9; }
   .alert-box.ok { background:#e6f4ea; color:#14532d; border:1px solid #b7dfc2; }
   .alert-box .ico { font-size:1.9rem; line-height:1; }
-  @media (prefers-color-scheme: dark) {
-    .alert-box.warn { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
-    .alert-box.ok { background:#12301c; color:#b9e8c6; border-color:#24553a; }
-  }
+  html[data-theme="dark"] .alert-box.warn { background:#3b1717; color:#f5c2c2; border-color:#6e2a2a; }
+  html[data-theme="dark"] .alert-box.ok { background:#12301c; color:#b9e8c6; border-color:#24553a; }
+  html[data-theme="dark"] .demo-banner { background:#12324A; border-color:#1E5A80; color:#E8EEF3; }
+  html[data-theme="dark"] .leaflet-container { background:#1B2B38; }
   .checks { list-style:none; padding:0; margin:.5rem 0 0; }
   .checks li { display:flex; gap:.55rem; padding:.3rem 0; font-size:.93rem; }
   .checks li::before { content:""; flex:none; width:1.05rem; height:1.05rem; margin-top:.2rem; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232e7d32' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center/contain no-repeat; }
@@ -83,6 +90,9 @@
 {% endblock %}
 
 {% block content %}
+{% if demo %}
+<div class="demo-banner" role="note"><svg class="i" aria-hidden="true"><use href="#i-database"/></svg><div><strong>Modo demostración.</strong> Estos son datos de ejemplo guardados en la aplicación; no son actuales y no se consultó ninguna API. Sirve para mostrar la plataforma sin conexión.</div></div>
+{% endif %}
 <div class="head-row">
   <div>
     <p class="muted" style="margin:0">Resultado para</p>
@@ -93,7 +103,8 @@
     </p>
   </div>
   <div style="display:flex; gap:.6rem; flex-wrap:wrap">
-    <form method="post" action="{% url 'dashboard:home' %}" data-evaluate>
+    {% if not demo %}
+    <form method="post" action="{% if assessment.zone_id and assessment.zone.user_id == user.id %}{% url 'accounts:zone_evaluate' assessment.zone_id %}{% else %}{% url 'dashboard:home' %}{% endif %}" data-evaluate>
       {% csrf_token %}
       <input type="hidden" name="latitude" value="{{ assessment.latitude|unlocalize }}">
       <input type="hidden" name="longitude" value="{{ assessment.longitude|unlocalize }}">
@@ -110,6 +121,7 @@
       </form>
     {% else %}
       <a class="btn secondary small" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Inicia sesión para guardar</a>
+    {% endif %}
     {% endif %}
     <a class="btn secondary small" href="{% url 'dashboard:home' %}"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg> Otra ubicación</a>
   </div>
@@ -180,7 +192,7 @@
     <header><svg class="i" aria-hidden="true"><use href="#i-trend"/></svg> Evolución del riesgo en esta zona</header>
     <div class="body">
       {% if history_count > 1 %}
-        <div class="chart-box"><canvas id="history-chart"></canvas></div>
+        <div class="chart-box"><canvas id="history-chart" role="img" aria-label="Gráfico de línea: evolución del índice de riesgo en esta zona"></canvas></div>
       {% else %}
         <p class="muted" style="margin:0">Aún no hay más evaluaciones de esta zona. Usa «Evaluar de nuevo» en otro momento para ver cómo cambia el riesgo.</p>
       {% endif %}
@@ -224,11 +236,15 @@
       L.control.layers({ 'Calles': streets, 'Claro': light, 'Satélite': satellite }).addTo(map);
 
       // Si el mapa principal falla muchas veces, se cambia solo a uno alternativo
-      var tileErrors = 0;
+      var tileErrors = 0, tilesLoaded = false;
+      [streets, light, satellite].forEach(function (layer) { layer.on('tileload', function () { tilesLoaded = true; map.getContainer().classList.remove('offline'); }); });
       streets.on('tileerror', function () {
         tileErrors += 1;
         if (tileErrors === 6 && map.hasLayer(streets)) { map.removeLayer(streets); light.addTo(map); }
+        if (tileErrors >= 8 && !tilesLoaded) { map.getContainer().classList.add('offline'); }
       });
+
+      light.on('tileerror', function () { tileErrors += 1; if (tileErrors >= 8 && !tilesLoaded) { map.getContainer().classList.add('offline'); } });
 
       // Anillos concéntricos con el color del nivel: dan la idea de "zona de influencia"
       var color = LEVEL_COLOR[level] || '#0b6bcb';
@@ -272,6 +288,9 @@
       } else {
         var chart = JSON.parse(document.getElementById('chart-data').textContent);
         var limit = chart.scores.map(function () { return 50; });
+        var rootStyle = getComputedStyle(document.documentElement);
+        Chart.defaults.color = rootStyle.getPropertyValue('--muted').trim() || '#5A6B7B';
+        Chart.defaults.borderColor = rootStyle.getPropertyValue('--border').trim() || '#E1E7EE';
         new Chart(canvas, {
           type: 'line',
           data: {

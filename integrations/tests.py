@@ -1,5 +1,5 @@
 """Pruebas de los clientes externos con datos simulados (no usan internet)."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -75,18 +75,30 @@ class FetchPrecipitationTests(TestCase):
     @patch("integrations.open_meteo.requests.get")
     def test_separa_lluvia_pasada_y_prevista(self, get):
         get.return_value = fake_response({"daily": {"precipitation_sum": [1, 2, 3, 4, 5, 6]}})
-        self.assertEqual(
-            fetch_precipitation(11.54, -72.91), {"past_mm": 6.0, "forecast_mm": 15.0}
-        )
+        result = fetch_precipitation(11.54, -72.91)
+        self.assertEqual((result["past_mm"], result["forecast_mm"]), (6.0, 15.0))
+
+    @patch("integrations.open_meteo.requests.get")
+    def test_devuelve_el_detalle_diario(self, get):
+        dates = ["2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"]
+        get.return_value = fake_response({"daily": {"time": dates, "precipitation_sum": [1, 2, 3, 4, 5, 6]}})
+        daily = fetch_precipitation(0, 0)["daily"]
+        self.assertEqual(len(daily), 6)
+        self.assertEqual(daily[0], {"date": "2026-11-08", "mm": 1.0, "forecast": False})
+        self.assertEqual(daily[3], {"date": "2026-11-11", "mm": 4.0, "forecast": True})
+
+    @patch("integrations.open_meteo.requests.get")
+    def test_detalle_diario_sin_fechas(self, get):
+        get.return_value = fake_response({"daily": {"precipitation_sum": [1, 2, 3, 4, 5, 6]}})
+        self.assertIsNone(fetch_precipitation(0, 0)["daily"][0]["date"])
 
     @patch("integrations.open_meteo.requests.get")
     def test_valores_none_cuentan_como_cero(self, get):
         get.return_value = fake_response(
             {"daily": {"precipitation_sum": [None, 2, 3, 4, None, 6]}}
         )
-        self.assertEqual(
-            fetch_precipitation(0, 0), {"past_mm": 5.0, "forecast_mm": 10.0}
-        )
+        result = fetch_precipitation(0, 0)
+        self.assertEqual((result["past_mm"], result["forecast_mm"]), (5.0, 10.0))
 
     @patch("integrations.open_meteo.requests.get", side_effect=requests.Timeout("lento"))
     def test_error_de_red_lanza_external_api_error(self, _get):
@@ -104,3 +116,29 @@ class FetchPrecipitationTests(TestCase):
         get.return_value = fake_response({"daily": {"precipitation_sum": [1, 2, 3]}})
         with self.assertRaises(ExternalAPIError):
             fetch_precipitation(0, 0)
+
+
+class OpenMeteoValidationTests(TestCase):
+    @patch("integrations.open_meteo.requests.get")
+    def test_sin_ningun_dato_de_lluvia_es_error_y_no_ceros(self, get):
+        get.return_value = fake_response({"daily": {"precipitation_sum": [None] * 6}})
+        with self.assertRaises(ExternalAPIError):
+            fetch_precipitation(0, 0)
+
+    @patch("integrations.open_meteo.requests.get")
+    def test_valores_no_numericos_son_error_controlado(self, get):
+        get.return_value = fake_response({"daily": {"precipitation_sum": ["x"] * 6}})
+        with self.assertRaises(ExternalAPIError):
+            fetch_precipitation(0, 0)
+
+
+class UsgsWindowTests(TestCase):
+    @patch("integrations.usgs.requests.get")
+    def test_pide_una_ventana_exacta_que_termina_ahora(self, get):
+        get.return_value = fake_response({"features": []})
+        fetch_quakes(0, 0, 100, 2)
+        params = get.call_args.kwargs["params"]
+        start = datetime.strptime(params["starttime"], "%Y-%m-%dT%H:%M:%S")
+        end = datetime.strptime(params["endtime"], "%Y-%m-%dT%H:%M:%S")
+        self.assertEqual(end - start, timedelta(days=2))
+        self.assertLess(abs((datetime.now(timezone.utc).replace(tzinfo=None) - end).total_seconds()), 60)
