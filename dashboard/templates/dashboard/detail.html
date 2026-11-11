@@ -12,6 +12,8 @@
   @keyframes alertpulse { 0%,100% { box-shadow:0 0 0 0 rgba(180,35,24,.45); } 50% { box-shadow:0 0 0 10px rgba(180,35,24,0); } }
   .head-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; animation:fadeUp .5s ease both; }
   .head-row h2 { font-size:clamp(1.4rem,3vw,2rem); margin:0; }
+  .savezone { display:flex; gap:8px; margin:0; }
+  .savezone input { height:40px; padding:0 12px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--text); font:inherit; font-size:13px; width:170px; }
   .layout { display:grid; grid-template-columns:minmax(300px,380px) 1fr; gap:1rem; align-items:start; }
   @media (max-width: 1000px) { .layout { grid-template-columns:1fr; } }
   .stack { display:grid; gap:1rem; }
@@ -99,6 +101,16 @@
       <input type="hidden" name="days" value="{{ assessment.days|unlocalize }}">
       <button type="submit" class="btn small"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg> Evaluar de nuevo</button>
     </form>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'accounts:zone_save' %}" class="savezone">
+        {% csrf_token %}
+        <input type="hidden" name="assessment_id" value="{{ assessment.pk|unlocalize }}">
+        <input type="text" name="name" value="{{ assessment.place_label|default_if_none:'' }}" placeholder="Nombre de la zona" maxlength="60" required aria-label="Nombre de la zona">
+        <button type="submit" class="btn secondary small"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Guardar zona</button>
+      </form>
+    {% else %}
+      <a class="btn secondary small" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Inicia sesión para guardar</a>
+    {% endif %}
     <a class="btn secondary small" href="{% url 'dashboard:home' %}"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg> Otra ubicación</a>
   </div>
 </div>
