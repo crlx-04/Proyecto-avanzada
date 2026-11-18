@@ -107,6 +107,7 @@
     <form method="post" action="{% if assessment.zone_id and assessment.zone.user_id == user.id %}{% url 'accounts:zone_evaluate' assessment.zone_id %}{% else %}{% url 'dashboard:home' %}{% endif %}" data-evaluate>
       {% csrf_token %}
       <input type="hidden" name="latitude" value="{{ assessment.latitude|unlocalize }}">
+      <input type="hidden" name="place_name" value="{{ assessment.place_name }}">
       <input type="hidden" name="longitude" value="{{ assessment.longitude|unlocalize }}">
       <input type="hidden" name="radius_km" value="{{ assessment.radius_km|unlocalize }}">
       <input type="hidden" name="days" value="{{ assessment.days|unlocalize }}">

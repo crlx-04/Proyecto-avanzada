@@ -108,6 +108,7 @@
   <section class="panel">
     <header><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Agregar una zona</header>
     <div class="body">
+      {% include "dashboard/_place_search.html" %}
       <div class="chips" style="margin-bottom:12px">
         {% for place in places %}
           <button type="button" class="chip" data-name="{{ place.name }}" data-lat="{{ place.lat|unlocalize }}" data-lon="{{ place.lon|unlocalize }}">{{ place.name }}</button>
@@ -182,6 +183,11 @@
     } else if (ov) {
       ov.innerHTML = '<p style="padding:1rem;color:var(--muted)">No se pudo cargar el mapa.</p>';
     }
+    // Buscador de lugares por nombre (ver static/dashboard/place-search.js)
+    ndipPlaceSearch(function (place) {
+      if (!nameInput.value) nameInput.value = place.name.slice(0, 60);
+      setCoords(place.latitude, place.longitude, true);
+    });
     document.querySelectorAll('.chip[data-lat]').forEach(function (chip) {
       chip.addEventListener('click', function () {
         if (!nameInput.value) nameInput.value = chip.dataset.name;

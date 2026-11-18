@@ -1,0 +1,26 @@
+{% load static %}
+{# Buscador de lugares por nombre. La página que lo incluye llama a ndipPlaceSearch(...) en su script. #}
+<style>
+  .search { position:relative; margin-bottom:.9rem; }
+  .search-row { display:flex; gap:.5rem; }
+  .search-row input { flex:1; min-width:0; padding:.65rem .8rem; border:1.5px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text); font-size:1rem; }
+  .search-row input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  #place-results { list-style:none; margin:.4rem 0 0; padding:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  #place-results:empty { display:none; }
+  #place-results button { display:block; width:100%; text-align:left; background:var(--card); color:var(--text); border:0; border-bottom:1px solid var(--border); padding:.55rem .8rem; cursor:pointer; font-size:.92rem; }
+  #place-results li:last-child button { border-bottom:0; }
+  #place-results button:hover, #place-results button:focus { background:var(--accent-soft); outline:none; }
+  #place-results small { display:block; color:var(--muted); }
+  #place-status { font-size:.86rem; margin:.4rem 0 0; }
+  #place-status:empty { display:none; }
+</style>
+<div class="search">
+  <label class="label-sm" for="place-query" style="display:block; font-size:.85rem; color:var(--muted); margin:0 0 .4rem">Busca una ciudad o pueblo (cualquier país)</label>
+  <div class="search-row">
+    <input type="search" id="place-query" placeholder="Ej. Riohacha, Lima, Madrid" maxlength="80" autocomplete="off" data-url="{% url 'dashboard:place_search' %}">
+    <button type="button" class="btn secondary small" id="place-search"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg> Buscar</button>
+  </div>
+  <ul id="place-results" aria-label="Resultados de la búsqueda"></ul>
+  <p id="place-status" class="muted" role="status"></p>
+</div>
+<script src="{% static 'dashboard/place-search.js' %}"></script>

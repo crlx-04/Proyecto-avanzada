@@ -52,7 +52,7 @@
 <section class="hero">
   <span class="eyebrow">EVALUACIÓN POR UBICACIÓN</span>
   <h2>¿Qué tan expuesta está tu ubicación?</h2>
-  <p>Elige un lugar en el mapa o escribe sus coordenadas. Combinamos la lluvia reciente y prevista con la actividad sísmica de la zona y te explicamos el resultado en palabras simples.</p>
+  <p>Busca tu ciudad, elige un punto en el mapa o usa tu ubicación. Combinamos la lluvia reciente y prevista con la actividad sísmica de la zona y te explicamos el resultado en palabras simples.</p>
   <p style="margin-top:14px"><a class="btn secondary small" href="{% url 'dashboard:demo' %}"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg> Ver demostración sin conexión</a></p>
 </section>
 
@@ -60,6 +60,8 @@
   <section class="panel">
     <header><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg> Controles de evaluación</header>
     <div class="body">
+      {% include "dashboard/_place_search.html" %}
+
       <p class="label-sm">Lugares rápidos</p>
       <div class="chips">
         {% for place in places %}
@@ -74,6 +76,7 @@
 
       <form method="post" data-evaluate>
         {% csrf_token %}
+        {{ form.place_name }}
         <div class="two">
           {% for field in form.visible_fields|slice:":2" %}
             <div class="field">
@@ -137,7 +140,7 @@
 
 <h2 class="section-title">Cómo funciona</h2>
 <div class="steps">
-  <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></div><div><strong>Eliges un lugar</strong><p class="muted" style="margin:.2rem 0 0">Con el mapa, coordenadas, un lugar rápido o tu ubicación.</p></div></div>
+  <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></div><div><strong>Eliges un lugar</strong><p class="muted" style="margin:.2rem 0 0">Con el buscador, el mapa, tu ubicación o las coordenadas.</p></div></div>
   <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-database"/></svg></div><div><strong>Consultamos datos abiertos</strong><p class="muted" style="margin:.2rem 0 0">Lluvia pasada y prevista (Open-Meteo) y sismos recientes (USGS).</p></div></div>
   <div class="card step reveal"><div class="num"><svg class="i" aria-hidden="true"><use href="#i-bulb"/></svg></div><div><strong>Te lo explicamos</strong><p class="muted" style="margin:.2rem 0 0">Un nivel de riesgo con su razón, recomendaciones y el historial de la zona.</p></div></div>
 </div>
@@ -147,6 +150,7 @@
     var latInput = document.getElementById('id_latitude');
     var lonInput = document.getElementById('id_longitude');
     var radiusInput = document.getElementById('id_radius_km');
+    var nameInput = document.getElementById('id_place_name');
     var status = document.getElementById('geo-status');
     var map = null, marker = null, circle = null;
 
@@ -162,8 +166,10 @@
       var r = radiusInput ? numberOrNull(radiusInput) : null;
       return (r && r > 0 ? r : 300) * 1000;
     }
-    // Pone las coordenadas en el formulario y mueve el marcador del mapa
-    function setCoords(lat, lon, fly) {
+    // Pone las coordenadas en el formulario y mueve el marcador del mapa.
+    // `name` es el nombre del lugar si se conoce; si el punto se eligió a mano queda vacío.
+    function setCoords(lat, lon, fly, name) {
+      nameInput.value = name || '';
       latInput.value = String(lat);
       lonInput.value = String(lon);
       if (!map) return;
@@ -172,6 +178,11 @@
       if (!marker._map) { marker.addTo(map); circle.addTo(map); }
       if (fly) map.flyTo(ll, Math.max(map.getZoom(), 6), { duration: 0.8 });
     }
+
+    // Si la persona escribe coordenadas a mano, el nombre del lugar anterior ya no aplica
+    [latInput, lonInput].forEach(function (el) {
+      el.addEventListener('input', function () { nameInput.value = ''; });
+    });
 
     // ---- Mapa interactivo ----
     var mapEl = document.getElementById('pick-map');
@@ -199,16 +210,22 @@
         if (!el) return;
         el.addEventListener('change', function () {
           var la = numberOrNull(latInput), lo = numberOrNull(lonInput);
-          if (la !== null && lo !== null && Math.abs(la) <= 90 && Math.abs(lo) <= 180) setCoords(la, lo, true);
+          if (la !== null && lo !== null && Math.abs(la) <= 90 && Math.abs(lo) <= 180) setCoords(la, lo, true, nameInput.value);
         });
       });
     }
 
     document.querySelectorAll('.chip[data-lat]').forEach(function (chip) {
       chip.addEventListener('click', function () {
-        setCoords(chip.dataset.lat, chip.dataset.lon, true);
+        setCoords(chip.dataset.lat, chip.dataset.lon, true, chip.textContent);
         setStatus('Ubicación elegida: ' + chip.textContent + '.', false);
       });
+    });
+
+    // ---- Buscador de lugares por nombre (ver static/dashboard/place-search.js) ----
+    ndipPlaceSearch(function (place, label) {
+      setCoords(place.latitude, place.longitude, true, label.slice(0, 80));
+      setStatus('Ubicación elegida: ' + label + '. Ahora pulsa «Evaluar riesgo».', false);
     });
 
     document.getElementById('use-location').addEventListener('click', function () {
