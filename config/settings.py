@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -59,6 +60,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise sirve los archivos estáticos (CSS, JS, fuentes) cuando DEBUG=False
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -134,16 +137,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# Carpeta donde `python manage.py collectstatic` reúne los archivos estáticos para un servidor real
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
 
 # Los mapas (OpenStreetMap) piden que se envie el origen al cargar teselas
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
@@ -152,3 +148,26 @@ SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'accounts:zones'
 LOGOUT_REDIRECT_URL = 'dashboard:home'
+
+
+# Seguridad adicional cuando el sitio está publicado con https (HTTPS=True en .env)
+if env_bool('HTTPS', False):
+    SESSION_COOKIE_SECURE = True   # las cookies solo viajan por https
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True     # quien entre por http es enviado a https
+    # Detrás de un proxy (Render, Railway, etc.) esta cabecera indica que la visita llegó por https
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Dominios desde los que se aceptan formularios, p. ej. https://mi-sitio.onrender.com
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+
+
+# Registro: los avisos de las apps (por ejemplo, una API que no responde) salen por la consola del servidor
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+}
+# Durante las pruebas se simulan fallos a propósito; se silencian para que la salida sea legible
+if 'test' in sys.argv:
+    LOGGING['root']['level'] = 'CRITICAL'
