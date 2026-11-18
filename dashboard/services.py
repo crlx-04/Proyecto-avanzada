@@ -32,7 +32,7 @@ ADVICE = {
 # Lista corta de acciones por nivel (para el panel de alertas)
 RECOMMENDATIONS = {
     "bajo": ["Mantente informado del pronóstico.", "Vuelve a evaluar si cambian las condiciones."],
-    "medio": ["Consulta el pronóstico oficial del IDEAM.", "Ten a mano un plan básico de emergencia.",
+    "medio": ["Consulta el pronóstico oficial de tu país.", "Ten a mano un plan básico de emergencia.",
               "Guarda los números de las autoridades locales."],
     "alto": ["Evita zonas cercanas a cauces y laderas.", "Revisa tu plan y tu ruta de evacuación.",
              "Sigue las indicaciones de las autoridades locales."],
@@ -40,8 +40,9 @@ RECOMMENDATIONS = {
                 "Ten listo tu plan y tus documentos de emergencia."],
 }
 OFFICIAL_NOTE = (
-    "Esta herramienta es informativa y no reemplaza los avisos oficiales. Para clima consulta al "
-    "IDEAM y para sismos al Servicio Geológico Colombiano."
+    "Esta herramienta es informativa y no reemplaza los avisos oficiales. Consulta siempre al servicio "
+    "meteorológico y a la entidad de gestión del riesgo de tu país (en Colombia: IDEAM, Servicio "
+    "Geológico Colombiano y UNGRD)."
 )
 
 
