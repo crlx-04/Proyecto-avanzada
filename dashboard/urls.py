@@ -10,5 +10,6 @@ urlpatterns = [
     path("exportar/evaluaciones.csv", views.export_csv, name="export_csv"),
     path("panel/", views.panel, name="panel"),
     path("demo/", views.demo, name="demo"),
+    path("lugares/", views.place_search, name="place_search"),
     path("historial/", views.history, name="history"),
 ]

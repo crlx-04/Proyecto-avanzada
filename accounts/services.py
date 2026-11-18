@@ -28,7 +28,7 @@ def evaluate_zone(zone):
 
     Puede lanzar ExternalAPIError si USGS u Open-Meteo no responden.
     """
-    assessment = assess_location(zone.latitude, zone.longitude, zone.radius_km)
+    assessment = assess_location(zone.latitude, zone.longitude, zone.radius_km, place_name=zone.name)
     assessment.zone = zone
     assessment.owner = zone.user
     assessment.save(update_fields=["zone", "owner"])

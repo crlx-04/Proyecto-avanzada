@@ -2,11 +2,12 @@ from types import SimpleNamespace
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from events.services import quakes_near
+from integrations import geocoding
 from integrations.errors import ExternalAPIError
 from risk.access import as_int, claim, visible_to
 from risk.models import RiskAssessment
@@ -22,16 +23,26 @@ from .forms import LocationForm
 from .services import ADVICE, OFFICIAL_NOTE, PLACES, RECOMMENDATIONS, label_for, zone_history
 
 
+# Límites del texto que se acepta en el buscador de lugares
+PLACE_QUERY_MIN = 2
+PLACE_QUERY_MAX = 80
+
+
 def _local(moment, fmt):
     """Formatea una fecha en la hora local del proyecto (America/Bogota)."""
     return timezone.localtime(moment).strftime(fmt)
 
 
+def _place_label(assessment):
+    """Nombre para mostrar: el guardado con la evaluación o, si no hay, el lugar conocido más cercano."""
+    return assessment.place_name or label_for(assessment.latitude, assessment.longitude)
+
+
 def _with_labels(assessments):
-    """Agrega a cada evaluación el nombre del lugar conocido más cercano (si hay uno)."""
+    """Agrega a cada evaluación el nombre del lugar (si se conoce)."""
     items = list(assessments)
     for item in items:
-        item.place_label = label_for(item.latitude, item.longitude)
+        item.place_label = _place_label(item)
     return items
 
 
@@ -55,7 +66,7 @@ def home(request):
     # Permite llegar con valores precargados: /?latitude=11.5&longitude=-72.9
     initial = {
         key: request.GET[key]
-        for key in ("latitude", "longitude", "radius_km", "days")
+        for key in ("latitude", "longitude", "radius_km", "days", "place_name")
         if key in request.GET
     }
     form = LocationForm(request.POST or None, initial=initial)
@@ -63,7 +74,8 @@ def home(request):
         data = form.cleaned_data
         try:
             assessment = assess_location(
-                data["latitude"], data["longitude"], data["radius_km"], data["days"]
+                data["latitude"], data["longitude"], data["radius_km"], data["days"],
+                place_name=data["place_name"].strip(),
             )
         except ExternalAPIError as exc:
             messages.error(
@@ -133,7 +145,7 @@ def _detail_context(assessment, quakes, history_points, demo=False):
 def detail(request, pk):
     """Resultado de una evaluación: nivel, explicación, mapa, sismos y gráfico del historial."""
     assessment = get_object_or_404(visible_to(request), pk=pk)
-    assessment.place_label = label_for(assessment.latitude, assessment.longitude)
+    assessment.place_label = _place_label(assessment)
 
     # Sismos de la ventana que se usó al evaluar (hasta el momento de la evaluación)
     quakes = quakes_near(
@@ -147,6 +159,18 @@ def detail(request, pk):
         (item.created_at, item.score) for item in zone_history(assessment, queryset=visible_to(request))
     ]
     return render(request, "dashboard/detail.html", _detail_context(assessment, quakes, history_points))
+
+
+def place_search(request):
+    """Busca lugares por nombre y responde en JSON (lo usa el buscador de la página principal)."""
+    query = request.GET.get("q", "").strip()[:PLACE_QUERY_MAX]
+    if len(query) < PLACE_QUERY_MIN:
+        return JsonResponse({"results": []})
+    try:
+        return JsonResponse({"results": geocoding.search_places(query)})
+    except ExternalAPIError as exc:
+        # 503 = servicio no disponible; el navegador muestra el mensaje y la persona puede usar el mapa
+        return JsonResponse({"results": [], "error": str(exc)}, status=503)
 
 
 def demo(request):

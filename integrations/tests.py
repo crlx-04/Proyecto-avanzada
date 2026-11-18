@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import requests
 
 from .errors import ExternalAPIError
+from .geocoding import search_places
 from .open_meteo import fetch_precipitation
 from .usgs import fetch_quakes
 
@@ -142,3 +143,65 @@ class UsgsWindowTests(TestCase):
         end = datetime.strptime(params["endtime"], "%Y-%m-%dT%H:%M:%S")
         self.assertEqual(end - start, timedelta(days=2))
         self.assertLess(abs((datetime.now(timezone.utc).replace(tzinfo=None) - end).total_seconds()), 60)
+
+
+SAMPLE_PLACES = {
+    "results": [
+        {"name": "Riohacha", "admin1": "La Guajira", "country": "Colombia", "latitude": 11.54444, "longitude": -72.90722},
+        {"name": "Lima", "country": "Perú", "latitude": -12.04318, "longitude": -77.02824},
+    ]
+}
+
+
+class SearchPlacesTests(TestCase):
+    @patch("integrations.geocoding.requests.get")
+    def test_convierte_los_resultados_a_diccionarios(self, get):
+        get.return_value = fake_response(SAMPLE_PLACES)
+        places = search_places("rio")
+        self.assertEqual(
+            places[0],
+            {"name": "Riohacha", "detail": "La Guajira, Colombia", "latitude": 11.5444, "longitude": -72.9072},
+        )
+        self.assertEqual(places[1]["detail"], "Perú")  # sin departamento solo queda el país
+        self.assertEqual(get.call_args.kwargs["params"]["name"], "rio")
+
+    @patch("integrations.geocoding.requests.get")
+    def test_no_repite_la_region_si_es_igual_al_nombre(self, get):
+        get.return_value = fake_response(
+            {"results": [{"name": "Lima", "admin1": "Lima", "country": "Perú", "latitude": -12.04, "longitude": -77.03}]}
+        )
+        self.assertEqual(search_places("lima")[0]["detail"], "Perú")
+
+    @patch("integrations.geocoding.requests.get")
+    def test_sin_coincidencias_devuelve_lista_vacia(self, get):
+        get.return_value = fake_response({"generationtime_ms": 0.5})  # la API omite "results"
+        self.assertEqual(search_places("zzzz"), [])
+
+    @patch("integrations.geocoding.requests.get", side_effect=requests.ConnectionError("sin red"))
+    def test_error_de_red_lanza_external_api_error(self, _get):
+        with self.assertRaises(ExternalAPIError):
+            search_places("riohacha")
+
+    @patch("integrations.geocoding.requests.get")
+    def test_respuesta_mal_formada_es_error_controlado(self, get):
+        get.return_value = fake_response({"results": [{"name": "Sin coordenadas"}]})
+        with self.assertRaises(ExternalAPIError):
+            search_places("x")
+
+
+class FriendlyErrorTests(TestCase):
+    """El mensaje que ve la persona no debe incluir detalles técnicos de la librería requests."""
+
+    @patch("integrations.open_meteo.requests.get", side_effect=requests.ConnectionError("HTTPSConnectionPool(host=...)"))
+    def test_open_meteo_no_muestra_el_detalle_tecnico(self, _get):
+        with self.assertRaises(ExternalAPIError) as caught:
+            fetch_precipitation(0, 0)
+        self.assertIn("No se pudo conectar con Open-Meteo", str(caught.exception))
+        self.assertNotIn("HTTPSConnectionPool", str(caught.exception))
+
+    @patch("integrations.usgs.requests.get", side_effect=requests.Timeout("Read timed out"))
+    def test_usgs_no_muestra_el_detalle_tecnico(self, _get):
+        with self.assertRaises(ExternalAPIError) as caught:
+            fetch_quakes(0, 0, 100, 2)
+        self.assertIn("No se pudo conectar con USGS", str(caught.exception))
+        self.assertNotIn("timed out", str(caught.exception))

@@ -13,6 +13,8 @@ class RiskAssessment(models.Model):
 
     latitude = models.FloatField()
     longitude = models.FloatField()
+    # Nombre del lugar si la persona lo eligió en el buscador o en los lugares rápidos (puede ir vacío)
+    place_name = models.CharField("nombre del lugar", max_length=80, blank=True)
     radius_km = models.PositiveIntegerField("radio de búsqueda de sismos (km)")
     days = models.PositiveSmallIntegerField("días de historial de sismos")
 

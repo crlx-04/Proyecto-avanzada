@@ -16,6 +16,8 @@ class LocationForm(forms.Form):
         max_value=180,
         widget=forms.NumberInput(attrs={"step": "any", "placeholder": "Ej. -72.9072"}),
     )
+    # Lo llena el buscador o un lugar rápido; si la persona mueve el punto a mano, queda vacío
+    place_name = forms.CharField(required=False, max_length=80, widget=forms.HiddenInput())
     radius_km = forms.IntegerField(
         label="Radio para buscar sismos (km)", min_value=10, max_value=1000, initial=300
     )

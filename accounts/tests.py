@@ -149,7 +149,7 @@ class ZoneTests(TestCase):
         zone = Zone.objects.create(user=self.user, name="Casa", latitude=11.54, longitude=-72.91, radius_km=200)
         assess.return_value = make_assessment()
         response = self.client.post(reverse("accounts:zone_evaluate", args=[zone.pk]))
-        assess.assert_called_once_with(11.54, -72.91, 200)
+        assess.assert_called_once_with(11.54, -72.91, 200, place_name="Casa")
         assessment = assess.return_value
         assessment.refresh_from_db()
         self.assertEqual(assessment.zone, zone)
@@ -166,7 +166,7 @@ class ZoneTests(TestCase):
         Zone.objects.create(user=self.user, name="Buena", latitude=1, longitude=1)
         Zone.objects.create(user=self.user, name="Mala", latitude=2, longitude=2)
 
-        def fake(lat, lon, radius):
+        def fake(lat, lon, radius, place_name=""):
             if lat == 2:
                 raise ExternalAPIError("falló")
             return make_assessment(lat=lat, lon=lon)

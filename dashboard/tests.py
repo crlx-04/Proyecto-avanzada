@@ -50,7 +50,7 @@ class HomeViewTests(TestCase):
         assess.return_value = assessment
         response = self.client.post(reverse("dashboard:home"), VALID_FORM)
         self.assertRedirects(response, reverse("dashboard:detail", args=[assessment.pk]))
-        assess.assert_called_once_with(11.54, -72.91, 300, 30)
+        assess.assert_called_once_with(11.54, -72.91, 300, 30, place_name="")
 
     @patch("dashboard.views.assess_location")
     def test_coordenadas_invalidas_no_evaluan(self, assess):

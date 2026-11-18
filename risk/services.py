@@ -121,7 +121,7 @@ def _checked(source, function, *args):
     return result
 
 
-def assess_location(lat, lon, radius_km=300, days=30):
+def assess_location(lat, lon, radius_km=300, days=30, place_name=""):
     """Consulta lluvia y sismos, calcula el riesgo y guarda la evaluación.
 
     Lanza ExternalAPIError si falla alguna de las dos APIs (no guarda nada en ese caso).
@@ -135,6 +135,7 @@ def assess_location(lat, lon, radius_km=300, days=30):
     return RiskAssessment.objects.create(
         latitude=lat,
         longitude=lon,
+        place_name=place_name,
         radius_km=radius_km,
         days=days,
         rain_past_mm=rain["past_mm"],
