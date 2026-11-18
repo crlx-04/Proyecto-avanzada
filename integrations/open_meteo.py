@@ -1,7 +1,11 @@
 """Cliente de la API de Open-Meteo (lluvia pasada y prevista)."""
+import logging
+
 import requests
 
 from .errors import ExternalAPIError
+
+logger = logging.getLogger(__name__)
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT_SECONDS = 10
@@ -55,5 +59,12 @@ def fetch_precipitation(lat, lon):
             "forecast_mm": round(sum(values[PAST_DAYS:PAST_DAYS + FORECAST_DAYS]), 1),
             "daily": daily,
         }
-    except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
-        raise ExternalAPIError(f"Error consultando Open-Meteo: {exc}") from exc
+    except requests.RequestException as exc:
+        # El detalle técnico va al registro del servidor; a la persona se le muestra un mensaje claro
+        logger.warning("Open-Meteo no respondió: %s", exc)
+        raise ExternalAPIError(
+            "No se pudo conectar con Open-Meteo (datos de lluvia). Revisa tu conexión e inténtalo de nuevo."
+        ) from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        logger.warning("Respuesta inesperada de Open-Meteo: %r", exc)
+        raise ExternalAPIError("Open-Meteo devolvió una respuesta que no se pudo interpretar.") from exc

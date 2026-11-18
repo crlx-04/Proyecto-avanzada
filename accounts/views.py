@@ -13,7 +13,7 @@ from .forms import MAX_ZONES, RegisterForm, ZoneForm
 from .models import Zone
 from .services import evaluate_zone, summary, zones_ranked
 
-ERROR_PREFIX = "No se pudo completar la evaluación. Revisa tu conexión e inténtalo de nuevo."
+ERROR_PREFIX = "No se pudo completar la evaluación."
 
 
 def register(request):
@@ -85,7 +85,7 @@ def zone_evaluate(request, pk):
     try:
         assessment = evaluate_zone(zone)
     except ExternalAPIError as error:
-        messages.error(request, f"{ERROR_PREFIX} ({error})")
+        messages.error(request, f"{ERROR_PREFIX} {error}")
         return redirect("accounts:zones")
     if assessment.new_alerts:
         messages.warning(request, f"Se activó {len(assessment.new_alerts)} alerta(s). Revísalas en Alertas.")

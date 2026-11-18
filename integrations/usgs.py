@@ -1,9 +1,13 @@
 """Cliente de la API de sismos del USGS (United States Geological Survey)."""
 from datetime import datetime, timedelta, timezone
 
+import logging
+
 import requests
 
 from .errors import ExternalAPIError
+
+logger = logging.getLogger(__name__)
 
 USGS_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 TIMEOUT_SECONDS = 10
@@ -34,8 +38,15 @@ def fetch_quakes(lat, lon, radius_km, days):
         response.raise_for_status()
         features = response.json()["features"]
         return [_parse_feature(feature) for feature in features]
-    except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
-        raise ExternalAPIError(f"Error consultando USGS: {exc}") from exc
+    except requests.RequestException as exc:
+        # El detalle técnico va al registro del servidor; a la persona se le muestra un mensaje claro
+        logger.warning("USGS no respondió: %s", exc)
+        raise ExternalAPIError(
+            "No se pudo conectar con USGS (datos de sismos). Revisa tu conexión e inténtalo de nuevo."
+        ) from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        logger.warning("Respuesta inesperada de USGS: %r", exc)
+        raise ExternalAPIError("USGS devolvió una respuesta que no se pudo interpretar.") from exc
 
 
 def _parse_feature(feature):
